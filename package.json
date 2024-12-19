@@ -1,0 +1,11 @@
+{
+  "name": "@node-in-layers/core",
+  "version": "1.0.0",
+  "description": "The core library for the Node In Layers rapid web app framework.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Node In Layers",
+  "license": "GPL-3.0-or-later"
+}
