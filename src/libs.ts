@@ -111,7 +111,7 @@ const getLayersUnavailable = (allLayers: readonly string[]) => {
   const layerToChoices: Record<string, string[]> = allLayers.reduce(
     (acc, layer, index) => {
       return merge(acc, {
-        [layer]: allLayers.slice(index),
+        [layer]: allLayers.slice(index + 1),
       })
     },
     {}
