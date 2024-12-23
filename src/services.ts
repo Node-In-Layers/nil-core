@@ -3,6 +3,7 @@ import parentModule from 'parent-module'
 import { resolve } from 'import-meta-resolve'
 import merge from 'lodash/merge.js'
 import get from 'lodash/get.js'
+import omit from 'lodash/omit.js'
 import log from 'loglevel'
 import {
   Config,
@@ -13,7 +14,12 @@ import {
   App,
   AppLayer,
 } from './types.js'
-import { getLogLevelName, validateConfig, lazyValue } from './libs.js'
+import {
+  getLayersUnavailable,
+  getLogLevelName,
+  validateConfig,
+  lazyValue,
+} from './libs.js'
 
 const create = ({
   fs,
@@ -73,8 +79,8 @@ const create = ({
   }
 
   const configureLogging = (config: Config) => {
-    log.setLevel(config.core.logLevel)
-    switch (config.core.logFormat) {
+    log.setLevel(config['nil-core/core'].logLevel)
+    switch (config['nil-core/core'].logFormat) {
       case LogFormat.json:
         useJsonLogFormat()
         break
@@ -85,7 +91,9 @@ const create = ({
         useFullLogFormat()
         break
       default:
-        throw new Error(`LogFormat ${config.core.logFormat} is not supported`)
+        throw new Error(
+          `LogFormat ${config['nil-core/core'].logFormat} is not supported`
+        )
     }
     return log
   }
@@ -125,24 +133,30 @@ const create = ({
         environment,
       },
     }
-    const layersInOrder = config.core.layerOrder
-    return config.core.apps.reduce((existingLayers: LayerDependencies, app) => {
-      return layersInOrder.reduce(
-        (existingLayers2: LayerDependencies, layer) => {
-          const instance = loadLayer(app, layer, existingLayers2)
-          if (!instance) {
-            return existingLayers2
-          }
-          // NOTE: This kind of merge, is not immutable, but it's fast.
-          return merge(existingLayers2, {
-            [layer]: {
-              [app.name]: instance,
-            },
-          })
-        },
-        existingLayers
-      )
-    }, startingDependencies)
+    const layersInOrder = config['nil-core/core'].layerOrder
+    const antiLayers = getLayersUnavailable(layersInOrder)
+    return config['nil-core/core'].apps.reduce(
+      (existingLayers: LayerDependencies, app) => {
+        return layersInOrder.reduce(
+          (existingLayers2: LayerDependencies, layer) => {
+            // We have to remove existing layers that we don't want to be exposed.
+            const correctContext = omit(existingLayers, antiLayers(layer))
+            const instance = loadLayer(app, layer, correctContext)
+            if (!instance) {
+              return existingLayers2
+            }
+            // NOTE: This kind of merge, is not immutable, but it's fast.
+            return merge(existingLayers2, {
+              [layer]: {
+                [app.name]: instance,
+              },
+            })
+          },
+          existingLayers
+        )
+      },
+      startingDependencies
+    )
   }
 
   async function loadApp(pluginName) {

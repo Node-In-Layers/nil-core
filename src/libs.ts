@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto'
 import AsyncLock from 'async-lock'
 import get from 'lodash/get.js'
+import merge from 'lodash/merge.js'
 import log from 'loglevel'
 import { wrap } from './utils.js'
 import { Config, LogLevel } from './types.js'
@@ -64,7 +65,7 @@ const configItemIsType =
   }
 
 const allAppsHaveAName = (config: Partial<Config>): boolean => {
-  config.core?.apps.find(app => {
+  config['nil-core/core']?.apps.find(app => {
     if (app.name === undefined) {
       throw new Error(`A configured app does not have a name.`)
     }
@@ -74,13 +75,13 @@ const allAppsHaveAName = (config: Partial<Config>): boolean => {
 }
 
 const _configItemsToCheck: readonly ((config: Partial<Config>) => void)[] = [
-  configHasKey('core.apps'),
-  configItemIsArray('core.apps'),
-  configHasKey('core.layerOrder'),
-  configItemIsArray('core.layerOrder'),
+  configHasKey('nil-core/core.apps'),
+  configItemIsArray('nil-core/core.apps'),
+  configHasKey('nil-core/core.layerOrder'),
+  configItemIsArray('nil-core/core.layerOrder'),
   allAppsHaveAName,
-  configItemIsType('core.logLevel', 'string'),
-  configItemIsType('core.logFormat', 'string'),
+  configItemIsType('nil-core/core.logLevel', 'string'),
+  configItemIsType('nil-core/core.logFormat', 'string'),
 ]
 
 const validateConfig = (config: Partial<Config>) => {
@@ -106,10 +107,29 @@ const getLogLevelName = (logLevel: log.LogLevelNumbers) => {
   }
 }
 
+const getLayersUnavailable = (allLayers: readonly string[]) => {
+  const layerToChoices: Record<string, string[]> = allLayers.reduce(
+    (acc, layer, index) => {
+      return merge(acc, {
+        [layer]: allLayers.slice(index),
+      })
+    },
+    {}
+  )
+  return (layer: string) => {
+    const choices = layerToChoices[layer]
+    if (!choices) {
+      throw new Error(`${layer} is not a valid layer choice`)
+    }
+    return choices
+  }
+}
+
 export {
   lazyValue,
   lazyValueSync,
   featurePassThrough,
   getLogLevelName,
   validateConfig,
+  getLayersUnavailable,
 }

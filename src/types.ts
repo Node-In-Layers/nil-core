@@ -55,7 +55,7 @@ type CoreServicesProps = Readonly<{
 
 type Config = Readonly<{
   environment: string
-  core: {
+  'nil-core/core': {
     logLevel: LogLevelNames
     logFormat: LogFormat
     layerOrder: readonly string[]
@@ -84,13 +84,13 @@ type CoreServices = Readonly<{
 
 type CoreServicesLayer = Readonly<{
   services: {
-    core: CoreServices
+    'nil-core/core': CoreServices
   }
 }>
 
 type CoreFeaturesLayer = Readonly<{
   features: {
-    core: CoreFeatures
+    'nil-core/core': CoreFeatures
   }
 }>
 

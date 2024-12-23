@@ -8,11 +8,15 @@ const create = ({ services }: CoreServicesLayer): CoreFeatures => {
   >(
     config?: TConfig
   ) => {
-    config = config || (await services.core.loadConfig<TConfig>())
-    const log = services.core.configureLogging(config)
-    const logger = log.getLogger('core.loadSystem')
+    config = config || (await services['nil-core/core'].loadConfig<TConfig>())
+    const log = services['nil-core/core'].configureLogging(config)
+    const logger = log.getLogger('nil-core/core.loadSystem')
     logger.debug('Loading Layers')
-    const layers = services.core.loadLayers<TConfig, TFeatures, TServices>({
+    const layers = services['nil-core/core'].loadLayers<
+      TConfig,
+      TFeatures,
+      TServices
+    >({
       config,
       log,
     })
