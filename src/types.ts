@@ -17,6 +17,7 @@ enum LogLevelNames {
   info = 'info',
   warn = 'warn',
   error = 'error',
+  silent = 'silent',
 }
 
 type FSLike = Readonly<{
@@ -55,7 +56,7 @@ type CoreServicesProps = Readonly<{
 
 type Config = Readonly<{
   environment: string
-  'nil-core/core': {
+  '@nil/core': {
     logLevel: LogLevelNames
     logFormat: LogFormat
     layerOrder: readonly string[]
@@ -84,13 +85,13 @@ type CoreServices = Readonly<{
 
 type CoreServicesLayer = Readonly<{
   services: {
-    'nil-core/core': CoreServices
+    '@nil/core': CoreServices
   }
 }>
 
 type CoreFeaturesLayer = Readonly<{
   features: {
-    'nil-core/core': CoreFeatures
+    '@nil/core': CoreFeatures
   }
 }>
 
