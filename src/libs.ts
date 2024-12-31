@@ -65,7 +65,7 @@ const configItemIsType =
   }
 
 const allAppsHaveAName = (config: Partial<Config>): boolean => {
-  config['nil-core/core']?.apps.find(app => {
+  config['@nil/core']?.apps.find(app => {
     if (app.name === undefined) {
       throw new Error(`A configured app does not have a name.`)
     }
@@ -75,13 +75,13 @@ const allAppsHaveAName = (config: Partial<Config>): boolean => {
 }
 
 const _configItemsToCheck: readonly ((config: Partial<Config>) => void)[] = [
-  configHasKey('nil-core/core.apps'),
-  configItemIsArray('nil-core/core.apps'),
-  configHasKey('nil-core/core.layerOrder'),
-  configItemIsArray('nil-core/core.layerOrder'),
+  configHasKey('@nil/core.apps'),
+  configItemIsArray('@nil/core.apps'),
+  configHasKey('@nil/core.layerOrder'),
+  configItemIsArray('@nil/core.layerOrder'),
   allAppsHaveAName,
-  configItemIsType('nil-core/core.logLevel', 'string'),
-  configItemIsType('nil-core/core.logFormat', 'string'),
+  configItemIsType('@nil/core.logLevel', 'string'),
+  configItemIsType('@nil/core.logFormat', 'string'),
 ]
 
 const validateConfig = (config: Partial<Config>) => {

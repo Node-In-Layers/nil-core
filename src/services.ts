@@ -79,8 +79,8 @@ const create = ({
   }
 
   const configureLogging = (config: Config) => {
-    log.setLevel(config['nil-core/core'].logLevel)
-    switch (config['nil-core/core'].logFormat) {
+    log.setLevel(config['@nil/core'].logLevel)
+    switch (config['@nil/core'].logFormat) {
       case LogFormat.json:
         useJsonLogFormat()
         break
@@ -92,16 +92,19 @@ const create = ({
         break
       default:
         throw new Error(
-          `LogFormat ${config['nil-core/core'].logFormat} is not supported`
+          `LogFormat ${config['@nil/core'].logFormat} is not supported`
         )
     }
     return log
   }
 
   const _loadConfig = lazyValue<Config>(async () => {
-    process.chdir(process.cwd())
-    const filePath = path.resolve(`./config.${environment}.mjs`)
-    const config: Config = await (await import(filePath)).default()
+    process.chdir(workingDirectory)
+    // TODO: this needs to be improved.
+    const filePath = `../config.${environment}.mjs`
+    const module = await import(filePath)
+    const func = module.default ? module.default : module
+    const config: Config = await func()
     validateConfig(config)
     return config
   })
@@ -133,9 +136,9 @@ const create = ({
         environment,
       },
     }
-    const layersInOrder = config['nil-core/core'].layerOrder
+    const layersInOrder = config['@nil/core'].layerOrder
     const antiLayers = getLayersUnavailable(layersInOrder)
-    return config['nil-core/core'].apps.reduce(
+    return config['@nil/core'].apps.reduce(
       (existingLayers: LayerDependencies, app) => {
         return layersInOrder.reduce(
           (existingLayers2: LayerDependencies, layer) => {
