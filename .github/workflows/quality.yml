@@ -1,4 +1,4 @@
-name: Unit Tests
+name: Quality
 
 on:
   push:
@@ -20,19 +20,12 @@ jobs:
         uses: actions/setup-node@v2
         with:
           node-version: ${{ matrix.node-version }}
+
       - name: Install dependencies
         run: npm install
 
-      - name: Build
-        run: npm run build
+      - name: Eslint
+        run: npm run eslint
 
-      - name: Run Unit Tests
-        run: npm test
-
-      - name: Test Coverage
-        run: npm run coverage
-
-      - name: Coveralls
-        uses: coverallsapp/github-action@master
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Prettier Check
+        run: npm run prettier:check

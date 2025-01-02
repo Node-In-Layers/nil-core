@@ -3,4 +3,3 @@
   "spec": "test/src/**/*.test.ts",
   "require": "ts-node/register"
 }
-

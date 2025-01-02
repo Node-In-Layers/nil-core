@@ -1,46 +1,8 @@
-import { randomUUID } from 'crypto'
-import AsyncLock from 'async-lock'
 import get from 'lodash/get.js'
 import merge from 'lodash/merge.js'
 import log from 'loglevel'
 import { wrap } from './utils.js'
-import { Config, LogLevel } from './types.js'
-
-const lazyValueSync = (method: (...args: any[]) => any) => {
-  /* eslint-disable functional/no-let */
-  let value: any = undefined
-  let called = false
-  return (...args: readonly any[]) => {
-    if (!called) {
-      called = true
-      value = method(...args)
-    }
-
-    return value
-  }
-  /* eslint-enable functional/no-let */
-}
-
-const lazyValue = <T>(
-  method: (...args: any[]) => any
-): ((...args: readonly any[]) => Promise<T>) => {
-  const key = randomUUID()
-  const lock = new AsyncLock()
-  /* eslint-disable functional/no-let */
-  let value: any = undefined
-  let called = false
-  return async (...args: readonly any[]) => {
-    return lock.acquire(key, async () => {
-      if (!called) {
-        called = true
-        value = await method(...args)
-      }
-
-      return value as T
-    })
-  }
-  /* eslint-enable functional/no-let */
-}
+import { Config, LogLevel, Namespaces } from './types.js'
 
 const featurePassThrough = wrap
 
@@ -65,7 +27,7 @@ const configItemIsType =
   }
 
 const allAppsHaveAName = (config: Partial<Config>): boolean => {
-  config['@nil/core']?.apps.find(app => {
+  config[Namespaces.core]?.apps.find(app => {
     if (app.name === undefined) {
       throw new Error(`A configured app does not have a name.`)
     }
@@ -74,14 +36,24 @@ const allAppsHaveAName = (config: Partial<Config>): boolean => {
   return true
 }
 
+const _getNamespaceProperty = (namespace: Namespaces, property: string) => {
+  return `${namespace}.${property}`
+}
+
 const _configItemsToCheck: readonly ((config: Partial<Config>) => void)[] = [
-  configHasKey('@nil/core.apps'),
-  configItemIsArray('@nil/core.apps'),
-  configHasKey('@nil/core.layerOrder'),
-  configItemIsArray('@nil/core.layerOrder'),
+  configHasKey(_getNamespaceProperty(Namespaces.core, 'apps')),
+  configItemIsArray(_getNamespaceProperty(Namespaces.core, 'apps')),
+  configHasKey(_getNamespaceProperty(Namespaces.core, 'layerOrder')),
+  configItemIsArray(_getNamespaceProperty(Namespaces.core, 'layerOrder')),
   allAppsHaveAName,
-  configItemIsType('@nil/core.logLevel', 'string'),
-  configItemIsType('@nil/core.logFormat', 'string'),
+  configItemIsType(
+    _getNamespaceProperty(Namespaces.core, 'logLevel'),
+    'string'
+  ),
+  configItemIsType(
+    _getNamespaceProperty(Namespaces.core, 'logFormat'),
+    'string'
+  ),
 ]
 
 const validateConfig = (config: Partial<Config>) => {
@@ -125,11 +97,25 @@ const getLayersUnavailable = (allLayers: readonly string[]) => {
   }
 }
 
+const isConfig = <TConfig extends Config>(obj: any): obj is TConfig => {
+  if (typeof obj === 'string') {
+    return false
+  }
+  return Boolean(get(obj, 'layerOrder'))
+}
+
+const getNamespace = (packageName: string, app?: string) => {
+  if (app) {
+    return `${packageName}/${app}`
+  }
+  return packageName
+}
+
 export {
-  lazyValue,
-  lazyValueSync,
   featurePassThrough,
   getLogLevelName,
   validateConfig,
   getLayersUnavailable,
+  isConfig,
+  getNamespace,
 }
