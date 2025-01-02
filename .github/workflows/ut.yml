@@ -7,7 +7,8 @@ on:
     branches: [main]
 
 jobs:
-  build:
+  tests:
+    name: Tests
     runs-on: ubuntu-latest
 
     strategy:
@@ -30,7 +31,7 @@ jobs:
         run: npm test
 
       - name: Test Coverage
-        run: npm run coverage
+        run: npm run test:coverage
 
       - name: Coveralls
         uses: coverallsapp/github-action@master
