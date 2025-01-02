@@ -4,7 +4,7 @@ import {
   validateConfig,
   getLayersUnavailable,
 } from '../../src/libs.js'
-import { Namespaces } from '../../src'
+import { CoreNamespace } from '../../src'
 
 describe('/src/libs.ts', () => {
   describe('#getLayersUnavailable()', () => {
@@ -36,7 +36,7 @@ describe('/src/libs.ts', () => {
       assert.throws(() => {
         validateConfig({
           enviroment: 'unit-test',
-          [Namespaces.core]: {
+          [CoreNamespace.root]: {
             apps: [
               {
                 name: 'testme',
@@ -54,7 +54,7 @@ describe('/src/libs.ts', () => {
       assert.throws(() => {
         validateConfig({
           enviroment: 'unit-test',
-          [Namespaces.core]: {
+          [CoreNamespace.root]: {
             apps: [
               {
                 name: 'testme',
@@ -71,7 +71,7 @@ describe('/src/libs.ts', () => {
       assert.throws(() => {
         validateConfig({
           enviroment: 'unit-test',
-          [Namespaces.core]: {
+          [CoreNamespace.root]: {
             apps: [
               {
                 name: 'testme',
@@ -88,7 +88,7 @@ describe('/src/libs.ts', () => {
       assert.throws(() => {
         validateConfig({
           enviroment: 'unit-test',
-          [Namespaces.core]: {
+          [CoreNamespace.root]: {
             apps: [
               {
                 name: 'testme',
@@ -104,7 +104,7 @@ describe('/src/libs.ts', () => {
       assert.throws(() => {
         validateConfig({
           enviroment: 'unit-test',
-          [Namespaces.core]: {
+          [CoreNamespace.root]: {
             layerOrder: ['services', 'features'],
             logFormat: 'full',
             logLevel: 'silent',

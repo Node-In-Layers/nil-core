@@ -1,7 +1,7 @@
 import omit from 'lodash/omit.js'
 import * as dependenciesApp from './dependencies.js'
 import * as layersApp from './layers.js'
-import { Config, Namespaces } from './types.js'
+import { Config, CoreNamespace } from './types.js'
 
 const loadSystem = async <TConfig extends Config = Config>(args: {
   environment: string
@@ -27,8 +27,8 @@ const loadSystem = async <TConfig extends Config = Config>(args: {
       [layersApp.name]: layersServices,
     },
   })
-  const layers = await layersFeatures.loadLayers()
-  return omit(layers, [`services.${Namespaces.layers}`])
+  const layers = layersFeatures.loadLayers()
+  return omit(layers, [`services.${CoreNamespace.layers}`])
 }
 
 export { loadSystem }

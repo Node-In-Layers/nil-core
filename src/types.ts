@@ -1,5 +1,3 @@
-import { Logger } from 'loglevel'
-
 /* eslint-disable no-magic-numbers */
 enum LogLevel {
   TRACE = 0,
@@ -42,19 +40,28 @@ enum LogFormat {
   full = 'full',
 }
 
-type RootLogger = {
-  getLogger: (name: string) => Logger
-}
+type Logger = Readonly<{
+  trace: (...msg: any[]) => void
+  debug: (...msg: any[]) => void
+  log: (...msg: any[]) => void
+  info: (...msg: any[]) => void
+  warn: (...msg: any[]) => void
+  error: (...msg: any[]) => void
+}>
 
-enum Namespaces {
-  core = '@nil-core',
-  dependencies = '@nil-core/dependencies',
-  layers = '@nil-core/layers',
+type RootLogger = Readonly<{
+  getLogger: (name: string) => Logger
+}>
+
+enum CoreNamespace {
+  root = '@node-in-layers/core',
+  dependencies = '@node-in-layers/core/dependencies',
+  layers = '@node-in-layers/core/layers',
 }
 
 type Config = Readonly<{
   environment: string
-  [Namespaces.core]: {
+  [CoreNamespace.root]: {
     logLevel: LogLevelNames
     logFormat: LogFormat
     layerOrder: readonly string[]
@@ -64,11 +71,10 @@ type Config = Readonly<{
 
 type AppLayer<
   TConfig extends Config = Config,
-  TDependencies extends
-    CommonDependencies<TConfig> = CommonDependencies<TConfig>,
+  TDependencies extends object = object,
   TLayer extends object = object,
 > = Readonly<{
-  create: (dependencies: TDependencies) => TLayer
+  create: (dependencies: LayerDependencies<TConfig, TDependencies>) => TLayer
 }>
 
 type CommonDependencies<TConfig extends Config = Config> = Readonly<{
@@ -92,10 +98,12 @@ type ServicesDependencies<
   TConfig extends Config = Config,
   TServices extends object = object,
   TDependencies extends object = object,
-> = {
-  services: TServices
-} & CommonDependencies<TConfig> &
-  TDependencies
+> = LayerDependencies<
+  TConfig,
+  {
+    services: TServices
+  } & TDependencies
+>
 
 type ServicesLayer<
   TConfig extends Config = Config,
@@ -120,11 +128,13 @@ type FeaturesDependencies<
   TServices extends object = object,
   TFeatures extends object = object,
   TDependencies extends object = object,
-> = {
-  services: TServices
-  features: TFeatures
-} & CommonDependencies<TConfig> &
-  TDependencies
+> = LayerDependencies<
+  TConfig,
+  {
+    services: TServices
+    features: TFeatures
+  } & TDependencies
+>
 
 type FeaturesLayer<
   TConfig extends Config = Config,
@@ -179,20 +189,11 @@ type DependenciesFeatures<TConfig extends Config> = Readonly<{
   ) => Promise<CommonDependencies<TConfig> & TDependencies>
 }>
 
-type App<
-  TConfig extends Config = Config,
-  TServicesLayer extends ServicesLayer<TConfig> = ServicesLayer<TConfig>,
-  TFeaturesLayer extends FeaturesLayer<TConfig> = FeaturesLayer<TConfig>,
-  TDependencies extends object = object,
-  TDependenciesLayer extends DependenciesLayer<
-    TConfig,
-    TDependencies
-  > = DependenciesLayer<TConfig, TDependencies>,
-> = Readonly<{
+type App = Readonly<{
   name: string
-  services?: TServicesLayer
-  features?: TFeaturesLayer
-  dependencies?: TDependenciesLayer
+  services?: AppLayer<Config, any>
+  features?: AppLayer<Config, any>
+  dependencies?: DependenciesLayer<Config, any>
 }>
 
 type LayerServices = Readonly<{
@@ -205,7 +206,7 @@ type LayerServices = Readonly<{
 
 type LayerServicesLayer = {
   services: {
-    [Namespaces.layers]: LayerServices
+    [CoreNamespace.layers]: LayerServices
   }
 }
 
@@ -228,5 +229,7 @@ export {
   CommonDependencies,
   LayerServices,
   LayerServicesLayer,
-  Namespaces,
+  CoreNamespace,
+  FeaturesLayer,
+  Logger,
 }

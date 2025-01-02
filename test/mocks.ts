@@ -6,7 +6,7 @@ import {
   FSLike,
   LogFormat,
   LogLevelNames,
-  Namespaces,
+  CoreNamespace,
 } from '../src/types.js'
 
 const CONFIG_FILE = './config.unit-test.mjs'
@@ -57,7 +57,7 @@ const deleteUnitTestConfig = () => {
 
 const validConfig1 = () => ({
   environment: 'unit-test',
-  [Namespaces.core]: {
+  [CoreNamespace.root]: {
     apps: [
       {
         name: 'test',
@@ -71,7 +71,7 @@ const validConfig1 = () => ({
 
 const validConfig2 = () => ({
   environment: 'unit-test',
-  [Namespaces.core]: {
+  [CoreNamespace.root]: {
     apps: [
       {
         name: 'fakeapp',
@@ -97,7 +97,7 @@ const validConfig2 = () => ({
 
 const validConfig3 = () => ({
   environment: 'unit-test',
-  [Namespaces.core]: {
+  [CoreNamespace.root]: {
     apps: [
       {
         name: 'fakeapp',

@@ -7,7 +7,7 @@ import {
   validConfig2,
   validConfig3,
 } from '../mocks'
-import { Config, Namespaces } from '../../src'
+import { Config, CoreNamespace } from '../../src'
 
 const _setup = (config?: Config) => {
   const logger = {
@@ -22,7 +22,7 @@ const _setup = (config?: Config) => {
     getLogger: sinon.stub().returns(logger),
   }
   const services = {
-    [Namespaces.layers]: layersServices.create(),
+    [CoreNamespace.layers]: layersServices.create(),
   }
   return {
     node: {
