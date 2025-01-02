@@ -1,11 +1,7 @@
 import omit from 'lodash/omit.js'
 import * as dependenciesApp from './dependencies.js'
 import * as layersApp from './layers.js'
-import {
-  Config,
-  CoreNamespace,
-  NodeDependencies,
-} from './types.js'
+import { Config, CoreNamespace, NodeDependencies } from './types.js'
 
 const loadSystem = async <TConfig extends Config = Config>(args: {
   environment: string
