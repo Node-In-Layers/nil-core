@@ -1,53 +1,32 @@
 import { assert } from 'chai'
-import sinon from 'sinon'
-import { LogLevel } from '../../src/types.js'
-import { lazyValueSync, getLogLevelName, validateConfig, getLayersUnavailable } from '../../src/libs.js'
-
-const CORE_KEY = '@nil/core'
+import {
+  getLogLevelName,
+  validateConfig,
+  getLayersUnavailable,
+} from '../../src/libs.js'
+import { Namespaces } from '../../src'
 
 describe('/src/libs.ts', () => {
-  describe('#lazyValueSync()', () => {
-    it('should call the function twice when lazy called twice', () => {
-      const func = sinon.stub().returns(5)
-      const lazied = lazyValueSync(func)
-      lazied()
-      lazied()
-      const actual = func.callCount
-      const expected = 1
-      assert.equal(actual, expected)
-    })
-  })
   describe('#getLayersUnavailable()', () => {
     it('should throw an exception when passing an unused layer', () => {
       assert.throws(() => {
-        getLayersUnavailable([
-          'services',
-          'features',
-        ])('not-real')
+        getLayersUnavailable(['services', 'features'])('not-real')
       })
     })
     it('should return [] when using [services, features] and features', () => {
-      const actual = getLayersUnavailable([
-        'services',
-        'features',
-      ])('features')
+      const actual = getLayersUnavailable(['services', 'features'])('features')
       const expected = []
       assert.deepEqual(actual, expected)
     })
     it('should return features when using [services, features] and services', () => {
-      const actual = getLayersUnavailable([
-        'services',
-        'features',
-      ])('services')
+      const actual = getLayersUnavailable(['services', 'features'])('services')
       const expected = ['features']
       assert.deepEqual(actual, expected)
     })
     it('should return higher when using [services, features, higher] and features', () => {
-      const actual = getLayersUnavailable([
-        'services',
-        'features',
-        'higher',
-      ])('features')
+      const actual = getLayersUnavailable(['services', 'features', 'higher'])(
+        'features'
+      )
       const expected = ['higher']
       assert.deepEqual(actual, expected)
     })
@@ -57,18 +36,17 @@ describe('/src/libs.ts', () => {
       assert.throws(() => {
         validateConfig({
           enviroment: 'unit-test',
-          [CORE_KEY]: {
-            apps: [{
-              name: 'testme',
-            }, {
-            }],
-            layerOrder: [
-              'services',
-              'features',
+          [Namespaces.core]: {
+            apps: [
+              {
+                name: 'testme',
+              },
+              {},
             ],
-            logFormat: "full",
-            logLevel: "silent"
-          }
+            layerOrder: ['services', 'features'],
+            logFormat: 'full',
+            logLevel: 'silent',
+          },
         })
       }, 'A configured app does not have a name')
     })
@@ -76,17 +54,16 @@ describe('/src/libs.ts', () => {
       assert.throws(() => {
         validateConfig({
           enviroment: 'unit-test',
-          [CORE_KEY]: {
-            apps: [{
-              name: 'testme',
-            }],
-            layerOrder: [
-              'services',
-              'features',
+          [Namespaces.core]: {
+            apps: [
+              {
+                name: 'testme',
+              },
             ],
-            logFormat: "full",
-            logLevel: 0
-          }
+            layerOrder: ['services', 'features'],
+            logFormat: 'full',
+            logLevel: 0,
+          },
         })
       })
     })
@@ -94,14 +71,16 @@ describe('/src/libs.ts', () => {
       assert.throws(() => {
         validateConfig({
           enviroment: 'unit-test',
-          [CORE_KEY]: {
-            apps: [{
-              name: 'testme',
-            }],
+          [Namespaces.core]: {
+            apps: [
+              {
+                name: 'testme',
+              },
+            ],
             layerOrder: 'features',
-            logFormat: "full",
-            logLevel: "silent"
-          }
+            logFormat: 'full',
+            logLevel: 'silent',
+          },
         })
       })
     })
@@ -109,13 +88,15 @@ describe('/src/libs.ts', () => {
       assert.throws(() => {
         validateConfig({
           enviroment: 'unit-test',
-          [CORE_KEY]: {
-            apps: [{
-              name: 'testme',
-            }],
-            logFormat: "full",
-            logLevel: "silent"
-          }
+          [Namespaces.core]: {
+            apps: [
+              {
+                name: 'testme',
+              },
+            ],
+            logFormat: 'full',
+            logLevel: 'silent',
+          },
         })
       })
     })
@@ -123,14 +104,11 @@ describe('/src/libs.ts', () => {
       assert.throws(() => {
         validateConfig({
           enviroment: 'unit-test',
-          [CORE_KEY]: {
-            layerOrder: [
-              "services",
-              "features"
-            ],
-            logFormat: "full",
-            logLevel: "silent"
-          }
+          [Namespaces.core]: {
+            layerOrder: ['services', 'features'],
+            logFormat: 'full',
+            logLevel: 'silent',
+          },
         })
       })
     })

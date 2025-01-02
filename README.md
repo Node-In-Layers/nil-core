@@ -1,5 +1,8 @@
 # Node In Layers
 
+![Unit Tests](https://github.com/node-in-layers/nil-core/actions/workflows/ut.yml/badge.svg?branch=master)
+[![Coverage Status](https://coveralls.io/repos/github/node-in-layers/nil-core/badge.svg?branch=master)](https://coveralls.io/github/node-in-layers/nil-core?branch=master)
+
 Rapid, batteries included, opinionated web development with functional node.
 
 ## The Batteries Included
@@ -35,108 +38,68 @@ Similar to Python's Django or the Ruby on Rails framework, Node In Layers follow
 
 An example is "auth". All code related to authentication and users, could go into an "app" called "auth". That way, if you want to know where authentication is happening, take a look at the "auth" layer.
 
-## Developing in Layers
+## Systemic Architecture
 
-After an extensive development career looking for the best methods, and trying to keep up with the rate of change, eventually one will stumble upon the reality that nearly systems follow the same structure. These structure follow the natural course of how a system works together, as well as where the complicated and easy parts are. The trouble in most systems is that complexity and known troublesome code concepts are embedded throughout the application rather than locating them in the same areas.
+After an extensive development career looking for the best methods, and trying to keep up with the rate of change, eventually one will stumble upon the reality that nearly systems follows predictable structures. One of these structures follows the natural course of how a parts within a system works together, as well as where the complicated and easy parts are. The trouble in most systems is that complexity and known troublesome code concepts are embedded throughout the application rather than putting them in well-defined areas that can be understood and maintained.
 
-Having code in discting layers, makes it really easy to reuse code, as well as refactor when real world situations change.
+A well organized system tends to be defined in "layers", where parts of the system are designed to speak to certain other parts of the system.
 
-The layers that Node In Layers uses are the following
+When a system is designed from the start using distinct layers, it makes it really easy to reuse code, as well as refactor when real world situations change.
 
-- Utils
-- Libs
+# The Primary Layers
+
+There are four primary layers in any system, and these are the layers that Node In Layers comes out of the box with. They are the following:
+
+- Dependencies
 - Services
 - Features
 - Entries
 
-### Utils - The Math Functions
+## Dependencies - The Special Layer
 
-There is abstract "math" like code, that could be reused in any number of systems, features and applications. Things like a "list". We call them "utilities".
+Node In Layers is a dependency injection framework as well as an opinionated framework that heavily suggests how code should be organized and initiated. There are dependencies that exist throughout a system that every single layer uses. Configurations, environment variables, etc.
 
-- [x] Simple to unit test
-- [ ] Has business specific code
-- [ ] Needs integration level testing
-- [x] Can be used anywhere in a system
-- [ ] Allowed to communicate with external entities.
+Every application has dependencies that are used throughout the application. Here are some common ones:
 
-#### What Other Layers Can Utils Call?
+- Configurations
+- Logger
+- Environmental Constants
 
-| Utils | Libs | Services | Features | Entries |
-| ----- | ---- | -------- | -------- | ------- |
-| ✅    | ❌   | ❌       | ❌       | ❌      |
+Unlike every other layer in Node In Layers, this "dependencies" layer is a special "layer." This layer is made widely available throughout the system, and has no namespaces. (Therefore be careful of collisions).
 
-### Libs - The Reusable Business Bricks
-
-There are low level small functions that take one thing and give you something else. It is always very specific to a business problem, but its something that could conceivably be used again and again.
-
-"Parse the customer id from this JSON Order".
-
-These functions, either combine things and produce one thing, or make many things from one thing, or they take one thing and convert it into something else. Transforms is a probably the best technical word but we just call them "libs". One thing to note, every function of the libs layer, does "one primary thing" and should be as small as reasonable. Too many steps can (but not always) indicate it might be a feature.
-
-- [x] Simple to unit test
-- [x] Has business specific code
-- [ ] Needs integration level testing
-- [ ] Can be used anywhere in a system
-- [ ] Allowed to communicate with external entities.
--
-
-#### What Other Layers Can Libs Call?
-
-| Utils | Libs | Services | Features | Entries |
-| ----- | ---- | -------- | -------- | ------- |
-| ✅    | ✅   | ❌       | ❌       | ❌      |
+Simply create a constructor function in an apps `dependencies.ts` file, and it will create the dependencies at the beginning of runtime, and then distributed up the app stack.
 
 ### Services - The Outside World Communicators
 
 When a system needs to no longer operate in "abstract land", you have something we call services. These are the functions that communicate out into the world and have to deal with the most complicated, uncontrolled, state and situations. These functions, if not handled carefully, are the most dangerous parts of the system because any changes, can often lead to costly refactors. "Want to switch from sqlite to mongo? Good luck".
 
-- [ ] Simple to unit test
-- [x] Has business specific code (not always)
-- [x] Needs integration level testing
-- [ ] Can be used anywhere in a system
-- [x] Allowed to communicate with external entities.
-
-#### What Other Layers Can Services Call?
-
-| Utils | Libs | Services | Features | Entries |
-| ----- | ---- | -------- | -------- | ------- |
-| ✅    | ✅   | ✅       | ❌       | ✅      |
-
-### Features - The features of a business system
+### Features - The primary purposes of a system
 
 Every system has features. A feature is ultimately made up of multiple steps laid out in a sequence. They are most often the things that people say the system does. "It can create a user" - therefore create "createUser". In this area of the code, one step follows another and many things are accomplished in one go. The sum of those steps together make up a whole. Something to be keenly aware of is that features are business specific so they don't include any code that relates to exactly how that feature gets executed.
 
-- [ ] Simple to unit test
-- [x] Has business specific code
-- [x] Needs integration level testing
-- [ ] Can be used anywhere in a system
-- [x] Allowed to communicate with external entities. (Through services)
+## Entries - The starting points
 
-#### What Other Layers Can Services Call?
+In order to kick off a feature, you need a place to do it. Command lines, web application endpoints, cloud serverless handlers. The same feature can be run from multiple locations. Any code that is related to how specifically parts of your system will run, we call "entries".
 
-| Utils | Libs | Services | Features | Entries |
-| ----- | ---- | -------- | -------- | ------- |
-| ✅    | ✅   | ✅       | ✅       | ❌      |
+One example is Express server code. There is considerable plumbing to get an express server to work (apps, routers, controllers). This plumbing code is used to create multiple entry points into the code via a listening server that has multiple endpoints.
 
-## Entries
+## Honorable Mentions
 
-In order to kick off a feature, you need a place to do it. Command lines, web application endpoints, cloud serverless handlers. The same feature or feature can be run from multiple locations. Any code that is related to how specifically parts of your system will run, we call "entries".
+### Utils - The Math Functions
 
-- [ ] Simple to unit test
-- [ ] Has business specific code
-- [x] Needs integration level testing
-- [ ] Can be used anywhere in a system
-- [ ] Allowed to communicate with external entities. (Through services)
+There is abstract "math" like code, that could be reused in any number of systems, features and applications. Things like a "list". We call them "utilities". These can be used anywhere in the system, so we congregate them into `utils.ts` files.
 
-#### What Other Layers Can Services Call?
+### Libs - The Reusable Business Bricks
 
-| Utils | Libs | Services | Features | Entries |
-| ----- | ---- | -------- | -------- | ------- |
-| ✅    | ❌   | ❌       | ✅       | ❌      |
+There are low level small functions that take one thing and give you something else. It is always very specific to a business problem, but it's something that could conceivably be used again and again.
+
+"Parse the customer id from this JSON Order".
+
+These functions, either combine things and produce one thing, or make many things from one thing, or they take one thing and convert it into something else. Transforms is a probably the best technical word but we just call them "libs". One thing to note, every function of the libs layer, does "one primary thing" and should be as small as reasonable. Too many steps can (but not always) indicate it might be a feature.
 
 ## More Layers
 
-In addition to the default layers, Node In Layers allows you to create new layers and place them where you want. Our ONLY requirement, is that default layers that are loaded (services and features) must be above one another. Other than that, you can create layers below, above, or in between these.
+In addition to the default layers, Node In Layers allows you to create new layers and place them where you want. Our ONLY requirement, is that default layers that are loaded (services, features, entries) must be above one another. Other than that, you can create layers below, above, or in between these.
 
 # Cohesive Layers In Action
 

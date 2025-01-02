@@ -1,5 +1,15 @@
+import fs from 'node:fs'
 import sinon from 'sinon'
-import { FSLike } from '../src/types.js'
+import hb from 'handlebars'
+import {
+  Config,
+  FSLike,
+  LogFormat,
+  LogLevelNames,
+  Namespaces,
+} from '../src/types.js'
+
+const CONFIG_FILE = './config.unit-test.mjs'
 
 const createMockFs = (): FSLike => {
   const mkdirSync = sinon.stub()
@@ -25,4 +35,91 @@ const createMockFs = (): FSLike => {
   }
 }
 
-export { createMockFs }
+const writeUnitTestConfig = (config: Config) => {
+  const configTemplate = fs.readFileSync(
+    //'../templates/config.mjs.handlebars',
+    './test/templates/config.mjs.handlebars',
+    'utf8'
+  )
+  const template = hb.compile(configTemplate)
+  const data = {
+    content: new hb.SafeString(JSON.stringify(config, null, 2)),
+  }
+  const text = template(data)
+  fs.writeFileSync(CONFIG_FILE, text)
+}
+
+const deleteUnitTestConfig = () => {
+  if (fs.existsSync(CONFIG_FILE)) {
+    fs.rmSync(CONFIG_FILE)
+  }
+}
+
+const validConfig1 = () => ({
+  environment: 'unit-test',
+  [Namespaces.core]: {
+    apps: [
+      {
+        name: 'test',
+      },
+    ],
+    layerOrder: ['services', 'features'],
+    logFormat: LogFormat.full,
+    logLevel: LogLevelNames.silent,
+  },
+})
+
+const validConfig2 = () => ({
+  environment: 'unit-test',
+  [Namespaces.core]: {
+    apps: [
+      {
+        name: 'fakeapp',
+        services: {
+          create: () => ({}),
+        },
+        features: {
+          create: () => ({}),
+        },
+      },
+      {
+        name: 'fakeapp2',
+        services: {
+          create: () => ({}),
+        },
+      },
+    ],
+    layerOrder: ['services', 'features'],
+    logFormat: LogFormat.full,
+    logLevel: LogLevelNames.silent,
+  },
+})
+
+const validConfig3 = () => ({
+  environment: 'unit-test',
+  [Namespaces.core]: {
+    apps: [
+      {
+        name: 'fakeapp',
+        services: {
+          create: () => ({}),
+        },
+        features: {
+          create: () => undefined,
+        },
+      },
+    ],
+    layerOrder: ['services', 'features'],
+    logFormat: LogFormat.full,
+    logLevel: LogLevelNames.silent,
+  },
+})
+
+export {
+  createMockFs,
+  validConfig3,
+  validConfig2,
+  validConfig1,
+  deleteUnitTestConfig,
+  writeUnitTestConfig,
+}

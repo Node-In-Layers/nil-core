@@ -1,6 +1,2 @@
-const name = '@nil/core'
-export * as services from './services.js'
-export * as features from './features.js'
+export { loadSystem } from './entries.js'
 export * from './types.js'
-
-export { name }
