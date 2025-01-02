@@ -6,22 +6,48 @@ import log from 'loglevel'
 import { getLogLevelName, isConfig, validateConfig } from './libs.js'
 import {
   Config,
+  RootLogger,
   LogFormat,
-  DependenciesServices,
-  DependenciesServicesProps,
-  DependenciesFeatures,
   App,
-  CommonDependencies,
+  CommonContext,
   CoreNamespace,
+  NodeDependencies,
 } from './types.js'
 import { memoizeValue } from './utils.js'
 
 const name = CoreNamespace.dependencies
 
+type DependenciesServicesProps = Readonly<{
+  environment: string
+  workingDirectory: string
+  nodeOverrides?: Partial<NodeDependencies>
+}>
+
+type DependenciesServices<TConfig extends Config> = Readonly<{
+  loadConfig: () => Promise<TConfig>
+  configureLogging: (config: TConfig) => RootLogger
+  getConstants: () => {
+    workingDirectory: string
+    environment: string
+  }
+  getNodeServices: () => NodeDependencies
+  getDependencies: (
+    commonDependencies: CommonContext<TConfig>,
+    app: App
+  ) => Promise<Record<string, any>>
+}>
+
+type DependenciesFeatures<TConfig extends Config> = Readonly<{
+  loadDependencies: <TDependencies extends Record<string, any> = object>(
+    environmentOrConfig: string | TConfig
+  ) => Promise<CommonContext<TConfig> & TDependencies>
+}>
+
 const services = {
   create: <TConfig extends Config>({
     environment,
     workingDirectory,
+    nodeOverrides,
   }: DependenciesServicesProps): DependenciesServices<TConfig> => {
     const useFullLogFormat = () => {
       const originalFactory = log.methodFactory
@@ -136,13 +162,16 @@ const services = {
     }
 
     const getNodeServices = () => {
-      return {
-        fs: nodeFS,
-      }
+      return merge(
+        {
+          fs: nodeFS,
+        },
+        nodeOverrides || {}
+      )
     }
 
     const getDependencies = (
-      commonDependencies: CommonDependencies<TConfig>,
+      commonDependencies: CommonContext<TConfig>,
       app: App
     ) => {
       if (app.dependencies) {
