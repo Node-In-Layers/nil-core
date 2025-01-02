@@ -8,11 +8,11 @@ import {
   CommonDependencies,
   LayerServices,
   LayerServicesLayer,
-  Namespaces,
+  CoreNamespace,
 } from './types.js'
 import { getLayersUnavailable } from './libs.js'
 
-const name = Namespaces.layers
+const name = CoreNamespace.layers
 
 const services = {
   create: (): LayerServices => {
@@ -39,15 +39,17 @@ const services = {
 const features = {
   create: (props: CommonDependencies & LayerServicesLayer) => {
     const loadLayers = () => {
-      const layersInOrder = props.config[Namespaces.core].layerOrder
+      const layersInOrder = props.config[CoreNamespace.root].layerOrder
       const antiLayers = getLayersUnavailable(layersInOrder)
-      const ignoreLayers = [Namespaces.layers, Namespaces.dependencies]
+      const ignoreLayers = [CoreNamespace.layers, CoreNamespace.dependencies]
         .map(l => `services.${l}`)
         .concat(
-          [Namespaces.layers, Namespaces.dependencies].map(l => `features.${l}`)
+          [CoreNamespace.layers, CoreNamespace.dependencies].map(
+            l => `features.${l}`
+          )
         )
       return omit(
-        props.config[Namespaces.core].apps.reduce(
+        props.config[CoreNamespace.root].apps.reduce(
           (existingLayers: LayerDependencies, app) => {
             return layersInOrder.reduce(
               (existingLayers2: LayerDependencies, layer) => {
@@ -56,7 +58,7 @@ const features = {
                   ...antiLayers(layer),
                   ...ignoreLayers,
                 ])
-                const instance = props.services[Namespaces.layers].loadLayer(
+                const instance = props.services[CoreNamespace.layers].loadLayer(
                   app,
                   layer,
                   correctContext

@@ -2,7 +2,7 @@ import get from 'lodash/get.js'
 import merge from 'lodash/merge.js'
 import log from 'loglevel'
 import { wrap } from './utils.js'
-import { Config, LogLevel, Namespaces } from './types.js'
+import { Config, LogLevel, CoreNamespace } from './types.js'
 
 const featurePassThrough = wrap
 
@@ -27,7 +27,7 @@ const configItemIsType =
   }
 
 const allAppsHaveAName = (config: Partial<Config>): boolean => {
-  config[Namespaces.core]?.apps.find(app => {
+  config[CoreNamespace.root]?.apps.find(app => {
     if (app.name === undefined) {
       throw new Error(`A configured app does not have a name.`)
     }
@@ -36,22 +36,22 @@ const allAppsHaveAName = (config: Partial<Config>): boolean => {
   return true
 }
 
-const _getNamespaceProperty = (namespace: Namespaces, property: string) => {
+const _getNamespaceProperty = (namespace: CoreNamespace, property: string) => {
   return `${namespace}.${property}`
 }
 
 const _configItemsToCheck: readonly ((config: Partial<Config>) => void)[] = [
-  configHasKey(_getNamespaceProperty(Namespaces.core, 'apps')),
-  configItemIsArray(_getNamespaceProperty(Namespaces.core, 'apps')),
-  configHasKey(_getNamespaceProperty(Namespaces.core, 'layerOrder')),
-  configItemIsArray(_getNamespaceProperty(Namespaces.core, 'layerOrder')),
+  configHasKey(_getNamespaceProperty(CoreNamespace.root, 'apps')),
+  configItemIsArray(_getNamespaceProperty(CoreNamespace.root, 'apps')),
+  configHasKey(_getNamespaceProperty(CoreNamespace.root, 'layerOrder')),
+  configItemIsArray(_getNamespaceProperty(CoreNamespace.root, 'layerOrder')),
   allAppsHaveAName,
   configItemIsType(
-    _getNamespaceProperty(Namespaces.core, 'logLevel'),
+    _getNamespaceProperty(CoreNamespace.root, 'logLevel'),
     'string'
   ),
   configItemIsType(
-    _getNamespaceProperty(Namespaces.core, 'logFormat'),
+    _getNamespaceProperty(CoreNamespace.root, 'logFormat'),
     'string'
   ),
 ]
@@ -101,7 +101,9 @@ const isConfig = <TConfig extends Config>(obj: any): obj is TConfig => {
   if (typeof obj === 'string') {
     return false
   }
-  return Boolean(get(obj, 'layerOrder'))
+  return Boolean(
+    get(obj, _getNamespaceProperty(CoreNamespace.root, 'layerOrder'))
+  )
 }
 
 const getNamespace = (packageName: string, app?: string) => {

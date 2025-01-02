@@ -12,11 +12,11 @@ import {
   DependenciesFeatures,
   App,
   CommonDependencies,
-  Namespaces,
+  CoreNamespace,
 } from './types.js'
 import { memoizeValue } from './utils.js'
 
-const name = Namespaces.dependencies
+const name = CoreNamespace.dependencies
 
 const services = {
   create: <TConfig extends Config>({
@@ -76,8 +76,8 @@ const services = {
     }
 
     const configureLogging = (config: Config) => {
-      log.setLevel(config[Namespaces.core].logLevel)
-      switch (config[Namespaces.core].logFormat) {
+      log.setLevel(config[CoreNamespace.root].logLevel)
+      switch (config[CoreNamespace.root].logFormat) {
         case LogFormat.json:
           useJsonLogFormat()
           break
@@ -89,7 +89,7 @@ const services = {
           break
         default:
           throw new Error(
-            `LogFormat ${config[Namespaces.core].logFormat} is not supported`
+            `LogFormat ${config[CoreNamespace.root].logFormat} is not supported`
           )
       }
       return log
@@ -166,16 +166,18 @@ const features = {
     services,
   }: {
     services: {
-      ['@nil-core/dependencies']: DependenciesServices<TConfig>
+      [CoreNamespace.dependencies]: DependenciesServices<TConfig>
     }
   }): DependenciesFeatures<TConfig> => {
     const ourServices = get(services, name)
+
     const loadDependencies = async <TDependencies extends object>(
       environmentOrConfig: string | TConfig
     ) => {
       const config: TConfig = await (isConfig(environmentOrConfig)
         ? environmentOrConfig
         : ourServices.loadConfig())
+      validateConfig(config)
 
       const commonDependencies = {
         config,
@@ -184,7 +186,7 @@ const features = {
         constants: ourServices.getConstants(),
       }
       const dependencies: TDependencies = await config[
-        Namespaces.core
+        CoreNamespace.root
       ].apps.reduce(
         async (accP, app) => {
           const acc = await accP
