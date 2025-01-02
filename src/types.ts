@@ -74,13 +74,15 @@ type AppLayer<
   TDependencies extends object = object,
   TLayer extends object = object,
 > = Readonly<{
-  create: (dependencies: LayerDependencies<TConfig, TDependencies>) => TLayer
+  create: (dependencies: LayerContext<TConfig, TDependencies>) => TLayer
 }>
 
-type CommonDependencies<TConfig extends Config = Config> = Readonly<{
-  node: {
-    fs: FSLike
-  }
+type NodeDependencies = Readonly<{
+  fs: FSLike
+}>
+
+type CommonContext<TConfig extends Config = Config> = Readonly<{
+  node: NodeDependencies
   config: TConfig
   log: RootLogger
   constants: {
@@ -89,30 +91,30 @@ type CommonDependencies<TConfig extends Config = Config> = Readonly<{
   }
 }>
 
-type LayerDependencies<
+type LayerContext<
   TConfig extends Config = Config,
   TDependencies extends object = object,
-> = CommonDependencies<TConfig> & TDependencies
+> = CommonContext<TConfig> & TDependencies
 
-type ServicesDependencies<
+type ServicesContext<
   TConfig extends Config = Config,
   TServices extends object = object,
   TDependencies extends object = object,
-> = LayerDependencies<
+> = LayerContext<
   TConfig,
   {
     services: TServices
   } & TDependencies
 >
 
-type ServicesLayer<
+type ServicesLayerFactory<
   TConfig extends Config = Config,
   TServices extends object = object,
   TDependencies extends object = object,
   TLayer extends object = object,
 > = Readonly<{
   create: (
-    dependencies: ServicesDependencies<TConfig, TServices, TDependencies>
+    context: ServicesContext<TConfig, TServices, TDependencies>
   ) => TLayer
 }>
 
@@ -120,15 +122,15 @@ type DependenciesLayer<
   TConfig extends Config = Config,
   TDependencies extends object = object,
 > = Readonly<{
-  create: (deps: CommonDependencies<TConfig>) => Promise<TDependencies>
+  create: (context: CommonContext<TConfig>) => Promise<TDependencies>
 }>
 
-type FeaturesDependencies<
+type FeaturesContext<
   TConfig extends Config = Config,
   TServices extends object = object,
   TFeatures extends object = object,
   TDependencies extends object = object,
-> = LayerDependencies<
+> = LayerContext<
   TConfig,
   {
     services: TServices
@@ -136,7 +138,7 @@ type FeaturesDependencies<
   } & TDependencies
 >
 
-type FeaturesLayer<
+type FeaturesLayerFactory<
   TConfig extends Config = Config,
   TDependencies extends object = object,
   TServices extends object = object,
@@ -144,12 +146,7 @@ type FeaturesLayer<
   TLayer extends object = object,
 > = Readonly<{
   create: (
-    dependencies: FeaturesDependencies<
-      TConfig,
-      TServices,
-      TFeatures,
-      TDependencies
-    >
+    context: FeaturesContext<TConfig, TServices, TFeatures, TDependencies>
   ) => TLayer
 }>
 
@@ -157,37 +154,10 @@ type System<
   TConfig extends Config = Config,
   TFeatures extends object = object,
   TServices extends object = object,
-> = CommonDependencies<TConfig> & {
+> = CommonContext<TConfig> & {
   services: TServices
   features: TFeatures
 }
-
-type DependenciesServicesProps = Readonly<{
-  environment: string
-  workingDirectory: string
-}>
-
-type DependenciesServices<TConfig extends Config> = Readonly<{
-  loadConfig: () => Promise<TConfig>
-  configureLogging: (config: TConfig) => RootLogger
-  getConstants: () => {
-    workingDirectory: string
-    environment: string
-  }
-  getNodeServices: () => {
-    fs: FSLike
-  }
-  getDependencies: (
-    commonDependencies: CommonDependencies<TConfig>,
-    app: App
-  ) => Promise<Record<string, any>>
-}>
-
-type DependenciesFeatures<TConfig extends Config> = Readonly<{
-  loadDependencies: <TDependencies extends Record<string, any> = object>(
-    environmentOrConfig: string | TConfig
-  ) => Promise<CommonDependencies<TConfig> & TDependencies>
-}>
 
 type App = Readonly<{
   name: string
@@ -195,20 +165,6 @@ type App = Readonly<{
   features?: AppLayer<Config, any>
   dependencies?: DependenciesLayer<Config, any>
 }>
-
-type LayerServices = Readonly<{
-  loadLayer: (
-    app: App,
-    layer: string,
-    existingLayers: object
-  ) => undefined | Record<string, any>
-}>
-
-type LayerServicesLayer = {
-  services: {
-    [CoreNamespace.layers]: LayerServices
-  }
-}
 
 export {
   Config,
@@ -218,18 +174,15 @@ export {
   LogLevel,
   LogLevelNames,
   AppLayer,
-  LayerDependencies,
-  ServicesDependencies,
-  ServicesLayer,
-  FeaturesDependencies,
+  LayerContext,
+  ServicesContext,
+  ServicesLayerFactory,
+  FeaturesContext,
   System,
-  DependenciesServices,
-  DependenciesServicesProps,
-  DependenciesFeatures,
-  CommonDependencies,
-  LayerServices,
-  LayerServicesLayer,
+  RootLogger,
+  CommonContext,
   CoreNamespace,
-  FeaturesLayer,
+  FeaturesLayerFactory,
   Logger,
+  NodeDependencies,
 }

@@ -4,15 +4,27 @@ import merge from 'lodash/merge.js'
 import {
   App,
   AppLayer,
-  LayerDependencies,
-  CommonDependencies,
-  LayerServices,
-  LayerServicesLayer,
+  LayerContext,
+  CommonContext,
   CoreNamespace,
 } from './types.js'
 import { getLayersUnavailable } from './libs.js'
 
 const name = CoreNamespace.layers
+
+type LayerServices = Readonly<{
+  loadLayer: (
+    app: App,
+    layer: string,
+    existingLayers: object
+  ) => undefined | Record<string, any>
+}>
+
+type LayerServicesLayer = {
+  services: {
+    [CoreNamespace.layers]: LayerServices
+  }
+}
 
 const services = {
   create: (): LayerServices => {
@@ -37,9 +49,9 @@ const services = {
 }
 
 const features = {
-  create: (props: CommonDependencies & LayerServicesLayer) => {
+  create: (context: CommonContext & LayerServicesLayer) => {
     const loadLayers = () => {
-      const layersInOrder = props.config[CoreNamespace.root].layerOrder
+      const layersInOrder = context.config[CoreNamespace.root].layerOrder
       const antiLayers = getLayersUnavailable(layersInOrder)
       const ignoreLayers = [CoreNamespace.layers, CoreNamespace.dependencies]
         .map(l => `services.${l}`)
@@ -49,20 +61,18 @@ const features = {
           )
         )
       return omit(
-        props.config[CoreNamespace.root].apps.reduce(
-          (existingLayers: LayerDependencies, app) => {
+        context.config[CoreNamespace.root].apps.reduce(
+          (existingLayers: LayerContext, app) => {
             return layersInOrder.reduce(
-              (existingLayers2: LayerDependencies, layer) => {
+              (existingLayers2: LayerContext, layer) => {
                 // We have to remove existing layers that we don't want to be exposed.
                 const correctContext = omit(existingLayers, [
                   ...antiLayers(layer),
                   ...ignoreLayers,
                 ])
-                const instance = props.services[CoreNamespace.layers].loadLayer(
-                  app,
-                  layer,
-                  correctContext
-                )
+                const instance = context.services[
+                  CoreNamespace.layers
+                ].loadLayer(app, layer, correctContext)
                 if (!instance) {
                   return existingLayers2
                 }
@@ -76,7 +86,7 @@ const features = {
               existingLayers
             )
           },
-          props
+          context
         ),
         ignoreLayers
       )
