@@ -57,6 +57,7 @@ const deleteUnitTestConfig = () => {
 
 const validConfig1 = () => ({
   environment: 'unit-test',
+  systemName: 'nil-core',
   [CoreNamespace.root]: {
     apps: [
       {
@@ -71,6 +72,7 @@ const validConfig1 = () => ({
 
 const validConfig2 = () => ({
   environment: 'unit-test',
+  systemName: 'nil-core',
   [CoreNamespace.root]: {
     apps: [
       {
@@ -97,6 +99,7 @@ const validConfig2 = () => ({
 
 const validConfig3 = () => ({
   environment: 'unit-test',
+  systemName: 'nil-core',
   [CoreNamespace.root]: {
     apps: [
       {

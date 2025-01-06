@@ -4,13 +4,11 @@ import * as chai from 'chai'
 import asPromised from 'chai-as-promised'
 import {
   createMockFs,
-  validConfig3,
-  validConfig2,
   validConfig1,
   deleteUnitTestConfig,
   writeUnitTestConfig,
 } from '../mocks'
-import { services, features } from '../../src/dependencies'
+import { services, features } from '../../src/globals'
 
 chai.use(asPromised)
 
@@ -31,7 +29,7 @@ const _setup = () => {
   }
 }
 
-describe('/src/dependencies.ts', () => {
+describe('/src/globals.ts', () => {
   describe('#services.create()', () => {})
   describe('#features.create()', () => {
     describe('#loadLayers()', () => {})

@@ -55,11 +55,12 @@ type RootLogger = Readonly<{
 
 enum CoreNamespace {
   root = '@node-in-layers/core',
-  dependencies = '@node-in-layers/core/dependencies',
+  globals = '@node-in-layers/core/globals',
   layers = '@node-in-layers/core/layers',
 }
 
 type Config = Readonly<{
+  systemName: string
   environment: string
   [CoreNamespace.root]: {
     logLevel: LogLevelNames
@@ -71,10 +72,10 @@ type Config = Readonly<{
 
 type AppLayer<
   TConfig extends Config = Config,
-  TDependencies extends object = object,
+  TContext extends object = object,
   TLayer extends object = object,
 > = Readonly<{
-  create: (dependencies: LayerContext<TConfig, TDependencies>) => TLayer
+  create: (dependencies: LayerContext<TConfig, TContext>) => TLayer
 }>
 
 type NodeDependencies = Readonly<{
@@ -93,67 +94,65 @@ type CommonContext<TConfig extends Config = Config> = Readonly<{
 
 type LayerContext<
   TConfig extends Config = Config,
-  TDependencies extends object = object,
-> = CommonContext<TConfig> & TDependencies
+  TContext extends object = object,
+> = CommonContext<TConfig> & TContext
 
 type ServicesContext<
   TConfig extends Config = Config,
   TServices extends object = object,
-  TDependencies extends object = object,
+  TContext extends object = object,
 > = LayerContext<
   TConfig,
   {
     services: TServices
-  } & TDependencies
+  } & TContext
 >
 
 type ServicesLayerFactory<
   TConfig extends Config = Config,
   TServices extends object = object,
-  TDependencies extends object = object,
+  TContext extends object = object,
   TLayer extends object = object,
 > = Readonly<{
-  create: (
-    context: ServicesContext<TConfig, TServices, TDependencies>
-  ) => TLayer
+  create: (context: ServicesContext<TConfig, TServices, TContext>) => TLayer
 }>
 
-type DependenciesLayer<
+type GlobalsLayer<
   TConfig extends Config = Config,
-  TDependencies extends object = object,
+  TGlobals extends object = object,
 > = Readonly<{
-  create: (context: CommonContext<TConfig>) => Promise<TDependencies>
+  create: (context: CommonContext<TConfig>) => Promise<TGlobals>
 }>
 
 type FeaturesContext<
   TConfig extends Config = Config,
   TServices extends object = object,
   TFeatures extends object = object,
-  TDependencies extends object = object,
+  TGlobals extends object = object,
 > = LayerContext<
   TConfig,
   {
     services: TServices
     features: TFeatures
-  } & TDependencies
+  } & TGlobals
 >
 
 type FeaturesLayerFactory<
   TConfig extends Config = Config,
-  TDependencies extends object = object,
+  TContext extends object = object,
   TServices extends object = object,
   TFeatures extends object = object,
   TLayer extends object = object,
 > = Readonly<{
   create: (
-    context: FeaturesContext<TConfig, TServices, TFeatures, TDependencies>
+    context: FeaturesContext<TConfig, TServices, TFeatures, TContext>
   ) => TLayer
 }>
 
 type System<
   TConfig extends Config = Config,
-  TFeatures extends object = object,
   TServices extends object = object,
+  TFeatures extends object = object,
 > = CommonContext<TConfig> & {
   services: TServices
   features: TFeatures
@@ -163,7 +162,7 @@ type App = Readonly<{
   name: string
   services?: AppLayer<Config, any>
   features?: AppLayer<Config, any>
-  dependencies?: DependenciesLayer<Config, any>
+  globals?: GlobalsLayer<Config, any>
 }>
 
 export {
