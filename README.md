@@ -40,7 +40,7 @@ An example is "auth". All code related to authentication and users, could go int
 
 ## Systemic Architecture
 
-After an extensive development career looking for the best methods, and trying to keep up with the rate of change, eventually one will stumble upon the reality that nearly systems follows predictable structures. One of these structures follows the natural course of how a parts within a system works together, as well as where the complicated and easy parts are. The trouble in most systems is that complexity and known troublesome code concepts are embedded throughout the application rather than putting them in well-defined areas that can be understood and maintained.
+After an extensive development career looking for the best methods, and trying to keep up with the rate of change, eventually one will stumble upon the reality that nearly systems follow predictable structures. One of these structures follows the natural course of how a parts within a system works together, as well as where the complicated and easy parts are. The trouble in most systems is that complexity and known troublesome code concepts are embedded throughout the application rather than putting them in well-defined areas that can be understood and maintained.
 
 A well organized system tends to be defined in "layers", where parts of the system are designed to speak to certain other parts of the system.
 
@@ -50,24 +50,18 @@ When a system is designed from the start using distinct layers, it makes it real
 
 There are four primary layers in any system, and these are the layers that Node In Layers comes out of the box with. They are the following:
 
-- Dependencies
+- Globals
 - Services
 - Features
 - Entries
 
-## Dependencies - The Special Layer
+## Globals - The Everywhere Layer
 
-Node In Layers is a dependency injection framework as well as an opinionated framework that heavily suggests how code should be organized and initiated. There are dependencies that exist throughout a system that every single layer uses. Configurations, environment variables, etc.
+Node In Layers is a dependency injection framework as well as an opinionated framework that heavily suggests how code should be organized and initiated. There are items that exist throughout a system that every single layer uses. Configurations, environment variables, etc.
 
-Every application has dependencies that are used throughout the application. Here are some common ones:
+Unlike every other layer in Node In Layers, this "globals" layer is a special "layer." This layer is made widely available throughout the system, and has no namespaces. (Therefore be careful of collisions).
 
-- Configurations
-- Logger
-- Environmental Constants
-
-Unlike every other layer in Node In Layers, this "dependencies" layer is a special "layer." This layer is made widely available throughout the system, and has no namespaces. (Therefore be careful of collisions).
-
-Simply create a constructor function in an apps `dependencies.ts` file, and it will create the dependencies at the beginning of runtime, and then distributed up the app stack.
+Simply create a constructor function in an apps `globals.ts` file, and it will create the dependencies at the beginning of runtime, and then distributed up the app stack.
 
 ### Services - The Outside World Communicators
 

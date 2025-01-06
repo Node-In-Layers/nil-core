@@ -10,7 +10,7 @@ import {
   deleteUnitTestConfig,
   writeUnitTestConfig,
 } from '../mocks'
-import { services, features } from '../../src/dependencies'
+import { services, features } from '../../src/globals'
 
 chai.use(asPromised)
 
@@ -31,7 +31,7 @@ const _setup = () => {
   }
 }
 
-describe('/src/dependencies.ts', () => {
+describe('/src/globals.ts', () => {
   describe('#services.create()', () => {})
   describe('#features.create()', () => {
     describe('#loadLayers()', () => {})

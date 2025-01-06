@@ -53,10 +53,10 @@ const features = {
     const loadLayers = () => {
       const layersInOrder = context.config[CoreNamespace.root].layerOrder
       const antiLayers = getLayersUnavailable(layersInOrder)
-      const ignoreLayers = [CoreNamespace.layers, CoreNamespace.dependencies]
+      const ignoreLayers = [CoreNamespace.layers, CoreNamespace.globals]
         .map(l => `services.${l}`)
         .concat(
-          [CoreNamespace.layers, CoreNamespace.dependencies].map(
+          [CoreNamespace.layers, CoreNamespace.globals].map(
             l => `features.${l}`
           )
         )

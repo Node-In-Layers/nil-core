@@ -15,15 +15,15 @@ import {
 } from './types.js'
 import { memoizeValue } from './utils.js'
 
-const name = CoreNamespace.dependencies
+const name = CoreNamespace.globals
 
-type DependenciesServicesProps = Readonly<{
+type GlobalsServicesProps = Readonly<{
   environment: string
   workingDirectory: string
   nodeOverrides?: Partial<NodeDependencies>
 }>
 
-type DependenciesServices<TConfig extends Config> = Readonly<{
+type GlobalsServices<TConfig extends Config> = Readonly<{
   loadConfig: () => Promise<TConfig>
   configureLogging: (config: TConfig) => RootLogger
   getConstants: () => {
@@ -31,16 +31,16 @@ type DependenciesServices<TConfig extends Config> = Readonly<{
     environment: string
   }
   getNodeServices: () => NodeDependencies
-  getDependencies: (
-    commonDependencies: CommonContext<TConfig>,
+  getGlobals: (
+    commonGlobals: CommonContext<TConfig>,
     app: App
   ) => Promise<Record<string, any>>
 }>
 
-type DependenciesFeatures<TConfig extends Config> = Readonly<{
-  loadDependencies: <TDependencies extends Record<string, any> = object>(
+type GlobalsFeatures<TConfig extends Config> = Readonly<{
+  loadGlobals: <TGlobals extends Record<string, any> = object>(
     environmentOrConfig: string | TConfig
-  ) => Promise<CommonContext<TConfig> & TDependencies>
+  ) => Promise<CommonContext<TConfig> & TGlobals>
 }>
 
 const services = {
@@ -48,7 +48,7 @@ const services = {
     environment,
     workingDirectory,
     nodeOverrides,
-  }: DependenciesServicesProps): DependenciesServices<TConfig> => {
+  }: GlobalsServicesProps): GlobalsServices<TConfig> => {
     const useFullLogFormat = () => {
       const originalFactory = log.methodFactory
       // eslint-disable-next-line functional/immutable-data
@@ -170,12 +170,9 @@ const services = {
       )
     }
 
-    const getDependencies = (
-      commonDependencies: CommonContext<TConfig>,
-      app: App
-    ) => {
-      if (app.dependencies) {
-        return app.dependencies.create(commonDependencies)
+    const getGlobals = (commonGlobals: CommonContext<TConfig>, app: App) => {
+      if (app.globals) {
+        return app.globals.create(commonGlobals)
       }
       return Promise.resolve({})
     }
@@ -185,7 +182,7 @@ const services = {
       getConstants,
       configureLogging,
       getNodeServices,
-      getDependencies,
+      getGlobals,
     }
   },
 }
@@ -195,12 +192,12 @@ const features = {
     services,
   }: {
     services: {
-      [CoreNamespace.dependencies]: DependenciesServices<TConfig>
+      [CoreNamespace.globals]: GlobalsServices<TConfig>
     }
-  }): DependenciesFeatures<TConfig> => {
+  }): GlobalsFeatures<TConfig> => {
     const ourServices = get(services, name)
 
-    const loadDependencies = async <TDependencies extends object>(
+    const loadGlobals = async <TGlobals extends object>(
       environmentOrConfig: string | TConfig
     ) => {
       const config: TConfig = await (isConfig(environmentOrConfig)
@@ -208,26 +205,24 @@ const features = {
         : ourServices.loadConfig())
       validateConfig(config)
 
-      const commonDependencies = {
+      const commonGlobals = {
         config,
         log: ourServices.configureLogging(config),
         node: ourServices.getNodeServices(),
         constants: ourServices.getConstants(),
       }
-      const dependencies: TDependencies = await config[
-        CoreNamespace.root
-      ].apps.reduce(
+      const globals: TGlobals = await config[CoreNamespace.root].apps.reduce(
         async (accP, app) => {
           const acc = await accP
-          const dep = await ourServices.getDependencies(commonDependencies, app)
+          const dep = await ourServices.getGlobals(commonGlobals, app)
           return merge(acc, dep)
         },
-        Promise.resolve({} as TDependencies)
+        Promise.resolve({} as TGlobals)
       )
-      return merge(commonDependencies, dependencies)
+      return merge(commonGlobals, globals)
     }
     return {
-      loadDependencies,
+      loadGlobals,
     }
   },
 }
