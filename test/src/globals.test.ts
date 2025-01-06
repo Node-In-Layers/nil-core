@@ -4,8 +4,6 @@ import * as chai from 'chai'
 import asPromised from 'chai-as-promised'
 import {
   createMockFs,
-  validConfig3,
-  validConfig2,
   validConfig1,
   deleteUnitTestConfig,
   writeUnitTestConfig,

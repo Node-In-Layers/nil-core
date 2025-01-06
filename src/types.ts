@@ -60,6 +60,7 @@ enum CoreNamespace {
 }
 
 type Config = Readonly<{
+  systemName: string
   environment: string
   [CoreNamespace.root]: {
     logLevel: LogLevelNames
