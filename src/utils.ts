@@ -11,11 +11,13 @@ const promiseWrap = <T extends Array<any>, U>(
   return (...args: T): Promise<U> => Promise.resolve().then(() => fn(...args))
 }
 
-const memoizeValueSync = (method: (...args: any[]) => any) => {
+const memoizeValueSync = <T, A extends Array<any>>(
+  method: (...args: A) => T
+) => {
   /* eslint-disable functional/no-let */
   let value: any = undefined
   let called = false
-  return (...args: readonly any[]) => {
+  return (...args: A) => {
     if (!called) {
       called = true
       value = method(...args)
@@ -26,15 +28,15 @@ const memoizeValueSync = (method: (...args: any[]) => any) => {
   /* eslint-enable functional/no-let */
 }
 
-const memoizeValue = <T>(
-  method: (...args: any[]) => any
-): ((...args: readonly any[]) => Promise<T>) => {
+const memoizeValue = <T, A extends Array<any>>(
+  method: (...args: A) => T | Promise<T>
+): ((...args: A) => Promise<T>) => {
   const key = randomUUID()
   const lock = new AsyncLock()
   /* eslint-disable functional/no-let */
   let value: any = undefined
   let called = false
-  return async (...args: readonly any[]) => {
+  return async (...args: A) => {
     return lock.acquire(key, async () => {
       if (!called) {
         called = true

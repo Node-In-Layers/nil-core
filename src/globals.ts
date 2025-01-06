@@ -134,7 +134,7 @@ const services = {
         })
     }
 
-    const _loadConfig = memoizeValue<Config>(async () => {
+    const _loadConfig = memoizeValue(async () => {
       process.chdir(workingDirectory)
       const fullPath = _findConfigPath()
       if (!fullPath) {

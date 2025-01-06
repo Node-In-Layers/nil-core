@@ -35,7 +35,8 @@ describe('/src/libs.ts', () => {
     it('should throw an exception when an app doesnt have a name', () => {
       assert.throws(() => {
         validateConfig({
-          enviroment: 'unit-test',
+          systemName: 'nil-core',
+          environment: 'unit-test',
           [CoreNamespace.root]: {
             apps: [
               {
@@ -53,7 +54,8 @@ describe('/src/libs.ts', () => {
     it('should throw an exception when logLevel is a number', () => {
       assert.throws(() => {
         validateConfig({
-          enviroment: 'unit-test',
+          systemName: 'nil-core',
+          environment: 'unit-test',
           [CoreNamespace.root]: {
             apps: [
               {
@@ -70,7 +72,8 @@ describe('/src/libs.ts', () => {
     it('should throw an exception when layerOrder is not an array', () => {
       assert.throws(() => {
         validateConfig({
-          enviroment: 'unit-test',
+          systemName: 'nil-core',
+          environment: 'unit-test',
           [CoreNamespace.root]: {
             apps: [
               {
@@ -87,7 +90,8 @@ describe('/src/libs.ts', () => {
     it('should throw an exception when layerOrder is missing', () => {
       assert.throws(() => {
         validateConfig({
-          enviroment: 'unit-test',
+          systemName: 'nil-core',
+          environment: 'unit-test',
           [CoreNamespace.root]: {
             apps: [
               {
@@ -103,7 +107,8 @@ describe('/src/libs.ts', () => {
     it('should throw an exception when apps is missing', () => {
       assert.throws(() => {
         validateConfig({
-          enviroment: 'unit-test',
+          systemName: 'nil-core',
+          environment: 'unit-test',
           [CoreNamespace.root]: {
             layerOrder: ['services', 'features'],
             logFormat: 'full',
