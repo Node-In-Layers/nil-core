@@ -26,6 +26,7 @@ const loadSystem = async <TConfig extends Config = Config>(args: {
   const layersFeatures = layersApp.features.create({
     ...globals,
     services: {
+      node: layersServices.getNodeServices(args.nodeOverrides),
       [layersApp.name]: layersServices,
     },
   })

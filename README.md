@@ -21,13 +21,14 @@ Don't be offended by our unhumble opinions, because everyone has them. Just know
 - Code needs to be developed, really really fast, optimizing as we go where we know matters, and then further optimizing later.
 - Creating systems that use a consistent, cohesive, and documented structure is awesome.
 - Immutable and functional code is better than other code, in 99% of cases.
+- Data as a first class citizen, makes a system understandable. We use data modeling used throughout the system for that.
 - A regular boring React frontend with a regular boring REST backend, is truly good enough for 99% of situations.
 - Auto create boilerplate whenever possible, and keep this system not hard to setup/build/understand/maintain (_cough_ Nextjs)
 - Dependency injection, saves lives.
 
 # How A Node In Layers System is Built.
 
-Node In Layers provides all of the frameworky stuff so that you can focus on the problem you are trying to solve or opportunity you are trying to seek. In order to do that, there are two concepts that are used heavily
+Node In Layers provides the frameworky stuff so that you can focus on the problem you are trying to solve or opportunity you are trying to seek, whilst still having good structure that enables complexity and maintainability. In order to do that, there are two concepts that are used heavily throughout this platform. They are the following:
 
 1. Cohesion
 1. Layers

@@ -1,3 +1,4 @@
+import nodeFS from 'node:fs'
 import get from 'lodash/get.js'
 import omit from 'lodash/omit.js'
 import merge from 'lodash/merge.js'
@@ -6,13 +7,14 @@ import {
   AppLayer,
   LayerContext,
   CommonContext,
-  CoreNamespace,
+  CoreNamespace, NodeDependencies, NodeServices, NodeServicesLayer,
 } from './types.js'
 import { getLayersUnavailable } from './libs.js'
 
 const name = CoreNamespace.layers
 
 type LayerServices = Readonly<{
+  getNodeServices: (overrides?: Partial<NodeDependencies>) => NodeDependencies
   loadLayer: (
     app: App,
     layer: string,
@@ -28,6 +30,13 @@ type LayerServicesLayer = {
 
 const services = {
   create: (): LayerServices => {
+    const getNodeServices = (overrides?: Partial<NodeDependencies>) => {
+      return {
+        fs: nodeFS,
+        ...(overrides || {})
+      }
+    }
+
     const loadLayer = (app: App, layer: string, existingLayers: object) => {
       const constructor: AppLayer<any, any> | undefined = get(app, `${layer}`)
       if (!constructor?.create) {
@@ -43,13 +52,14 @@ const services = {
     }
 
     return {
+      getNodeServices,
       loadLayer,
     }
   },
 }
 
 const features = {
-  create: (context: CommonContext & LayerServicesLayer) => {
+  create: (context: CommonContext & LayerServicesLayer & NodeServicesLayer) => {
     const loadLayers = () => {
       const layersInOrder = context.config[CoreNamespace.root].layerOrder
       const antiLayers = getLayersUnavailable(layersInOrder)

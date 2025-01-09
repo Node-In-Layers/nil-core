@@ -83,13 +83,20 @@ type NodeDependencies = Readonly<{
 }>
 
 type CommonContext<TConfig extends Config = Config> = Readonly<{
-  node: NodeDependencies
   config: TConfig
   log: RootLogger
   constants: {
     environment: string
     workingDirectory: string
   }
+}>
+
+type NodeServices = Readonly<{
+  node: NodeDependencies,
+}>
+
+type NodeServicesLayer = Readonly<{
+  services: NodeServices
 }>
 
 type LayerContext<
@@ -104,7 +111,7 @@ type ServicesContext<
 > = LayerContext<
   TConfig,
   {
-    services: TServices
+    services: TServices & NodeServices
   } & TContext
 >
 
@@ -184,4 +191,6 @@ export {
   FeaturesLayerFactory,
   Logger,
   NodeDependencies,
+  NodeServices,
+  NodeServicesLayer,
 }
