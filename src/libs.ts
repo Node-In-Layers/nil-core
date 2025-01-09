@@ -41,6 +41,8 @@ const _getNamespaceProperty = (namespace: CoreNamespace, property: string) => {
 }
 
 const _configItemsToCheck: readonly ((config: Partial<Config>) => void)[] = [
+  configHasKey('environment'),
+  configHasKey('systemName'),
   configHasKey(_getNamespaceProperty(CoreNamespace.root, 'apps')),
   configItemIsArray(_getNamespaceProperty(CoreNamespace.root, 'apps')),
   configHasKey(_getNamespaceProperty(CoreNamespace.root, 'layerOrder')),
