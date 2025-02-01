@@ -29,7 +29,7 @@ const loadSystem = async <TConfig extends Config = Config>(args: {
       [layersApp.name]: layersServices,
     },
   })
-  const layers = layersFeatures.loadLayers()
+  const layers = await layersFeatures.loadLayers()
   return omit(layers, [`services.${CoreNamespace.layers}`])
 }
 

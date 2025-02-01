@@ -18,6 +18,8 @@ enum LogLevelNames {
   silent = 'silent',
 }
 
+type MaybePromise<T> = Promise<T>|T
+
 type FSLike = Readonly<{
   mkdirSync: (path: string, options?: { recursive?: boolean }) => void
   readFileSync: (path: string, encoding?: any) => string
@@ -59,13 +61,17 @@ enum CoreNamespace {
   layers = '@node-in-layers/core/layers',
 }
 
+type LayerComponentNames = readonly string[]
+type SingleLayerName = string
+type LayerDescription = string | readonly string[]
+
 type Config = Readonly<{
   systemName: string
   environment: string
   [CoreNamespace.root]: {
     logLevel: LogLevelNames
     logFormat: LogFormat
-    layerOrder: readonly string[]
+    layerOrder: readonly LayerDescription[]
     apps: readonly App[]
   }
 }>
@@ -75,7 +81,7 @@ type AppLayer<
   TContext extends object = object,
   TLayer extends object = object,
 > = Readonly<{
-  create: (dependencies: LayerContext<TConfig, TContext>) => TLayer
+  create: (dependencies: LayerContext<TConfig, TContext>) => MaybePromise<TLayer>
 }>
 
 type NodeDependencies = Readonly<{
@@ -184,4 +190,9 @@ export {
   FeaturesLayerFactory,
   Logger,
   NodeDependencies,
+  LayerComponentNames,
+  SingleLayerName,
+  LayerDescription,
+  MaybePromise,
 }
+
