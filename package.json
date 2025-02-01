@@ -5,18 +5,16 @@
   "description": "The core library for the Node In Layers rapid web development framework.",
   "main": "index.js",
   "scripts": {
-    "mocha": "mocha",
     "build": "rm -Rf ./dist && tsc -p ./tsconfig.json && cp package.json ./dist && cp README.md ./dist",
     "build:watch": "nodemon -e '*' --watch ./src --exec npm run build",
     "commit": "cz",
     "dist": "npm run build && cd dist && npm publish",
     "eslint": "eslint .",
-    "feature-tests": "./node_modules/.bin/cucumber-js -p default",
     "prettier": "prettier --write .",
     "prettier:check": "prettier -c .",
-    "vitest": "vitest",
     "test": "export TS_NODE_PROJECT='./tsconfig.test.json' && mocha -r tsx ./test/src/*.test.ts ./test/src/**/*.test.ts ./test/src/**/**/*.test.ts",
-    "test:coverage": "c8 --all --reporter cobertura --reporter text --reporter lcov --reporter html npm run test"
+    "test:coverage": "c8 --all --reporter cobertura --reporter text --reporter lcov --reporter html npm run test",
+    "test:features": "./node_modules/.bin/cucumber-js -p default"
   },
   "config": {
     "commitizen": {
@@ -79,8 +77,7 @@
     "ts-mocha": "^10.0.0",
     "ts-node": "^10.4.0",
     "tsx": "^4.19.2",
-    "typescript": "5.3.3",
-    "vitest": "^2.1.8"
+    "typescript": "5.3.3"
   },
   "dependencies": {
     "async-lock": "^1.4.1",

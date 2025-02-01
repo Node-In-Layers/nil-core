@@ -96,11 +96,13 @@ These functions, either combine things and produce one thing, or make many thing
 In addition to the default layers, Node In Layers allows you to create new layers and place them where you want. Our ONLY requirement, is that default layers that are loaded (services, features, entries) must be above one another. Other than that, you can create layers below, above, or in between these.
 
 ## Composite Layers
+
 Layering by its nature is a vertical stack approach. Each layer sits on top of each other, and only has access to what is below it.
 
 However, sometimes there is a need to create a layer via combining multiple smaller layers. This creates a single horizontal layer. We call these composite layers.
 
 #### Vertical Layers
+
 ```
 [ Layer 1 ]
 [ Layer 2 ]
@@ -108,25 +110,31 @@ However, sometimes there is a need to create a layer via combining multiple smal
 ```
 
 #### Composite Layers (Horizontal Layers)
+
 ```
                 [ Layer 1 ]
 [ Sub-Layer 1 ][ Sub-Layer 2][ Sub-Layer 3]
                 [ Layer 3 ]
 ```
+
 This is very easy to accomplish in this package.
 
 ## How To Implement Composite Layers
+
 When you create your configuration file you use the `layerOrder` property to identify your layers. You can also add in arrays within this array, that has a list of names. This will load each of those layers and combine them together.
 
 Note: In a standard functional way, the composite layers are loaded one at a time, and only have access to the previous layer information. This is to prevent cyclical references, which are an indication of a design that needs to be reworked. Unlike vertical layers which ONLY have access to what is below it, composite layers have access to everything to the left of them and just below. This will be explained below.
 
 ### How Composite Layers Are Loaded And What They Have Access To.
+
 Imagine you have the following system.
+
 ```
                 [ Layer 3 ]
 [ Sub-Layer 1 ][ Sub-Layer 2][ Sub-Layer 3]
                 [ Layer 1 ]
 ```
+
 There are 3 layers here. 1, 2, and 3.
 1 and 3 are normal layers, while layer 2 is a composite layer, composed of 3 composite-layers.
 
@@ -137,10 +145,10 @@ There are 3 layers here. 1, 2, and 3.
 5. Once layer 2 is finished, layer 3 is loaded, and has access to each of the components of layer 2.
 
 So...
+
 - Sub-Layer 1 only has access to Layer 1
 - Sub-Layer 2 has access to Sub-Layer 1 as well as Layer 1
 - Sub-Layer 3 has access to Sub-Layers 1 and 2, as well as Layer 1
-
 
 # Cohesive Layers In Action
 
