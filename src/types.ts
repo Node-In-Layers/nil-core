@@ -1,4 +1,7 @@
 /* eslint-disable no-magic-numbers */
+/**
+ * Log Levels
+ */
 enum LogLevel {
   TRACE = 0,
   DEBUG = 1,
@@ -9,6 +12,9 @@ enum LogLevel {
 }
 /* eslint-enable no-magic-numbers */
 
+/**
+ * Log Levels by names.
+ */
 enum LogLevelNames {
   trace = 'trace',
   debug = 'debug',
@@ -18,6 +24,16 @@ enum LogLevelNames {
   silent = 'silent',
 }
 
+/**
+ * A Promise or not a promise.
+ */
+type MaybePromise<T> = Promise<T> | T
+
+/**
+ * A node:fs like object.
+ * Useful for unit testing services that call the file system.
+ * @interface
+ */
 type FSLike = Readonly<{
   mkdirSync: (path: string, options?: { recursive?: boolean }) => void
   readFileSync: (path: string, encoding?: any) => string
@@ -34,69 +50,194 @@ type FSLike = Readonly<{
   }
 }>
 
+/**
+ * The format of log messages to the console.
+ */
 enum LogFormat {
   json = 'json',
   simple = 'simple',
   full = 'full',
 }
 
+/**
+ * A log object
+ * @interface
+ */
 type Logger = Readonly<{
+  /**
+   * Trace statement
+   * @param msg
+   */
   trace: (...msg: any[]) => void
+  /**
+   * Debug statement
+   * @param msg
+   */
   debug: (...msg: any[]) => void
-  log: (...msg: any[]) => void
+  /**
+   * An info statement
+   * @param msg
+   */
   info: (...msg: any[]) => void
+  /**
+   * Warning statement
+   * @param msg
+   */
   warn: (...msg: any[]) => void
+  /**
+   * An error statement.
+   * @param msg
+   */
   error: (...msg: any[]) => void
 }>
 
+/**
+ * A base level log object, that creates a logger
+ * @interface
+ */
 type RootLogger = Readonly<{
+  /**
+   * Gets a logger object wrapping the components.
+   * @param name - The name of the component doing the logging. Could be an app, a function, etc.
+   */
   getLogger: (name: string) => Logger
 }>
 
+/**
+ * Core Namespaces.
+ */
 enum CoreNamespace {
   root = '@node-in-layers/core',
   globals = '@node-in-layers/core/globals',
   layers = '@node-in-layers/core/layers',
 }
 
+type GenericLayer = Record<string, any>
+
+type LayerServices = Readonly<{
+  loadLayer: (
+    app: App,
+    layer: string,
+    existingLayers: LayerContext
+  ) => MaybePromise<GenericLayer | undefined>
+}>
+
+type LayerServicesLayer = {
+  services: {
+    [CoreNamespace.layers]: LayerServices
+  }
+}
+
+type LayerComponentNames = readonly string[]
+type SingleLayerName = string
+type LayerDescription = string | readonly string[]
+
+/**
+ * A basic config object
+ * @interface
+ */
 type Config = Readonly<{
+  /**
+   * The systems name
+   */
   systemName: string
+  /**
+   * The environment
+   */
   environment: string
+  /**
+   * Core level configurations
+   */
   [CoreNamespace.root]: {
+    /**
+     * The log level to log at.
+     */
     logLevel: LogLevelNames
+    /**
+     * The format of log messages to the console.
+     */
     logFormat: LogFormat
-    layerOrder: readonly string[]
+    /**
+     * The layers to be loaded, in their order.
+     * Can be either string names for regular layers, or an array of strings, for a composite layer with multiple sub-layers.
+     */
+    layerOrder: readonly LayerDescription[]
+    /**
+     * Already loaded apps.
+     * Most often take the form of doing require/imports directly in the config.
+     */
     apps: readonly App[]
   }
 }>
 
+/**
+ * A generic layer within an app
+ * @interface
+ */
 type AppLayer<
   TConfig extends Config = Config,
   TContext extends object = object,
   TLayer extends object = object,
 > = Readonly<{
-  create: (dependencies: LayerContext<TConfig, TContext>) => TLayer
+  /**
+   * Creates the layer.
+   * @param context
+   */
+  create: (context: LayerContext<TConfig, TContext>) => MaybePromise<TLayer>
 }>
 
+/**
+ * Node dependencies.
+ * @interface
+ */
 type NodeDependencies = Readonly<{
   fs: FSLike
 }>
 
+/**
+ * The base level context that everything recieves.
+ * @interface
+ */
 type CommonContext<TConfig extends Config = Config> = Readonly<{
+  /**
+   * Node dependencies
+   */
   node: NodeDependencies
+  /**
+   * The configuration file.
+   */
   config: TConfig
+  /**
+   * A root logger.
+   */
   log: RootLogger
+  /**
+   * Constants.
+   */
   constants: {
+    /**
+     * The environment
+     */
     environment: string
+    /**
+     * The working directory.
+     */
     workingDirectory: string
   }
 }>
 
+/**
+ * The context for a layer
+ */
 type LayerContext<
   TConfig extends Config = Config,
   TContext extends object = object,
 > = CommonContext<TConfig> & TContext
 
+/**
+ * The context for a service
+ * @interface
+ */
 type ServicesContext<
   TConfig extends Config = Config,
   TServices extends object = object,
@@ -104,16 +245,27 @@ type ServicesContext<
 > = LayerContext<
   TConfig,
   {
+    /**
+     * A services object.
+     */
     services: TServices
   } & TContext
 >
 
+/**
+ * A factory for creating the service.
+ * @interface
+ */
 type ServicesLayerFactory<
   TConfig extends Config = Config,
   TServices extends object = object,
   TContext extends object = object,
   TLayer extends object = object,
 > = Readonly<{
+  /**
+   * Creates the services layer
+   * @param context
+   */
   create: (context: ServicesContext<TConfig, TServices, TContext>) => TLayer
 }>
 
@@ -124,6 +276,10 @@ type GlobalsLayer<
   create: (context: CommonContext<TConfig>) => Promise<TGlobals>
 }>
 
+/**
+ * A context for layers
+ * @interface
+ */
 type FeaturesContext<
   TConfig extends Config = Config,
   TServices extends object = object,
@@ -132,7 +288,13 @@ type FeaturesContext<
 > = LayerContext<
   TConfig,
   {
+    /**
+     * Services
+     */
     services: TServices
+    /**
+     * Features
+     */
     features: TFeatures
   } & TGlobals
 >
@@ -149,6 +311,9 @@ type FeaturesLayerFactory<
   ) => TLayer
 }>
 
+/**
+ * Describes a complete system, with services and features.
+ */
 type System<
   TConfig extends Config = Config,
   TServices extends object = object,
@@ -158,10 +323,26 @@ type System<
   features: TFeatures
 }
 
+/**
+ * An app.
+ * @interface
+ */
 type App = Readonly<{
+  /**
+   * The name of the app
+   */
   name: string
+  /**
+   * Optional: Services layer
+   */
   services?: AppLayer<Config, any>
+  /**
+   * Optional: Features layer
+   */
   features?: AppLayer<Config, any>
+  /**
+   * Optional: Globals layer
+   */
   globals?: GlobalsLayer<Config, any>
 }>
 
@@ -184,4 +365,11 @@ export {
   FeaturesLayerFactory,
   Logger,
   NodeDependencies,
+  LayerComponentNames,
+  SingleLayerName,
+  LayerDescription,
+  MaybePromise,
+  LayerServices,
+  GenericLayer,
+  LayerServicesLayer,
 }

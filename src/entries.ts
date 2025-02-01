@@ -3,6 +3,13 @@ import * as globalsApp from './globals.js'
 import * as layersApp from './layers.js'
 import { Config, CoreNamespace, NodeDependencies } from './types.js'
 
+/**
+ * Loads a node in layers system.
+ * 1. Reads the configuration (if not provided).
+ * 2. Loads globals
+ * 3. Loads all layers
+ * @param args - The required arguments.
+ */
 const loadSystem = async <TConfig extends Config = Config>(args: {
   environment: string
   config?: TConfig
@@ -29,7 +36,7 @@ const loadSystem = async <TConfig extends Config = Config>(args: {
       [layersApp.name]: layersServices,
     },
   })
-  const layers = layersFeatures.loadLayers()
+  const layers = await layersFeatures.loadLayers()
   return omit(layers, [`services.${CoreNamespace.layers}`])
 }
 

@@ -2,7 +2,7 @@ import get from 'lodash/get.js'
 import merge from 'lodash/merge.js'
 import log from 'loglevel'
 import { wrap } from './utils.js'
-import { Config, LogLevel, CoreNamespace } from './types.js'
+import { Config, LogLevel, CoreNamespace, LayerDescription } from './types.js'
 
 const featurePassThrough = wrap
 
@@ -81,11 +81,29 @@ const getLogLevelName = (logLevel: log.LogLevelNumbers) => {
   }
 }
 
-const getLayersUnavailable = (allLayers: readonly string[]) => {
+const getLayerKey = (layerDescription: LayerDescription): string => {
+  return Array.isArray(layerDescription)
+    ? layerDescription.join('-')
+    : (layerDescription as string)
+}
+
+const getLayersUnavailable = (allLayers: readonly LayerDescription[]) => {
   const layerToChoices: Record<string, string[]> = allLayers.reduce(
     (acc, layer, index) => {
+      const antiLayers = allLayers.slice(index + 1)
+      // If we are dealing with a composite, we need to break it up
+      if (Array.isArray(layer)) {
+        return layer.reduce((inner, compositeLayer, i) => {
+          // We don't want to give access to the composite layers further up ahead.
+          const nestedAntiLayers = layer.slice(i + 1)
+          return merge(inner, {
+            [compositeLayer]: antiLayers.concat(nestedAntiLayers),
+          })
+        }, acc)
+      }
+      const key = getLayerKey(layer)
       return merge(acc, {
-        [layer]: allLayers.slice(index + 1),
+        [key]: allLayers.slice(index + 1),
       })
     },
     {}

@@ -30,7 +30,16 @@ const _setup = () => {
 }
 
 describe('/src/globals.ts', () => {
-  describe('#services.create()', () => {})
+  describe('#services.create()', () => {
+    it('should create a valid object', () => {
+      const instance = services.create({
+        environment: 'unit-test',
+        workingDirectory: process.cwd(),
+        nodeOverrides: {},
+      })
+      assert.isOk(instance)
+    })
+  })
   describe('#features.create()', () => {
     describe('#loadLayers()', () => {})
     describe('#loadConfig()', () => {
