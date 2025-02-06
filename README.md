@@ -48,7 +48,7 @@ When a system is designed from the start using distinct layers, it makes it real
 
 # The Primary Layers
 
-There are four primary layers in any system, and these are the layers that Node In Layers comes out of the box with. They are the following:
+Node In Layers comes with 5 layers out of the box (but more can be created). They are the following:
 
 - Globals
 - Services

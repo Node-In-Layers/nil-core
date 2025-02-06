@@ -1,4 +1,14 @@
 /* eslint-disable no-magic-numbers */
+import {
+  DataDescription,
+  OrmModel,
+  OrmModelInstance,
+  OrmSearch,
+  OrmSearchResult,
+  PrimaryKeyType,
+  ToObjectResult,
+} from 'functional-models'
+
 /**
  * Log Levels
  */
@@ -110,11 +120,24 @@ enum CoreNamespace {
   root = '@node-in-layers/core',
   globals = '@node-in-layers/core/globals',
   layers = '@node-in-layers/core/layers',
+  models = '@node-in-layers/core/models',
 }
 
+/**
+ * A generic layer
+ */
 type GenericLayer = Record<string, any>
 
+/**
+ * Services for the layer app
+ */
 type LayerServices = Readonly<{
+  /**
+   * Loads a layer.
+   * @param app
+   * @param layer
+   * @param existingLayers
+   */
   loadLayer: (
     app: App,
     layer: string,
@@ -122,7 +145,14 @@ type LayerServices = Readonly<{
   ) => MaybePromise<GenericLayer | undefined>
 }>
 
+/**
+ * The services layer for the core layers app
+ * @interface
+ */
 type LayerServicesLayer = {
+  /**
+   * Services
+   */
   services: {
     [CoreNamespace.layers]: LayerServices
   }
