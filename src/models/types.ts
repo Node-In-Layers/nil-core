@@ -1,5 +1,5 @@
 import {
-  DataDescription,
+  DataDescription, ModelType,
   OrmModel,
   OrmModelInstance,
   OrmSearch,
@@ -7,16 +7,17 @@ import {
   PrimaryKeyType,
   ToObjectResult,
 } from 'functional-models'
-
-enum ModelsNamespace {
-  root = '@node-in-layers/core/models',
-}
+import { CoreNamespace } from '../types.js'
 
 /**
  * The CRUDS functions for a model
  * @interface
  */
-type ModelFunctions<TData extends DataDescription> = Readonly<{
+type ModelFunctions<TData extends DataDescription, TModelExtensions extends object=object, TModelInstanceExtensions extends object=object> = Readonly<{
+  /**
+   * Gets the underlying model
+   */
+  getModel: () => ModelType<TData, TModelExtensions, TModelInstanceExtensions>
   /**
    * The create function
    */
@@ -62,7 +63,7 @@ type ModelServicesLayer = Readonly<{
   /**
    * Model Services
    */
-  [ModelsNamespace.root]: ModelServices
+  [CoreNamespace.models]: ModelServices
 }>
 
 /**
@@ -116,6 +117,12 @@ type ModelsFeaturesLayer = Readonly<{
 }>
 
 /**
+ * An object that provides overrides for default behavior.
+ * @interface
+ */
+type CrudsOverrides<TData extends DataDescription> = Partial<Omit<ModelFunctions<TData>, 'getModel'>>
+
+/**
  * Options for building CRUDS interfaces with a model
  * @interface
  */
@@ -123,7 +130,7 @@ type CrudsOptions<TData extends DataDescription> = Readonly<{
   /**
    * Override any individual function.
    */
-  overrides?: Partial<ModelFunctions<TData>>
+  overrides?: CrudsOverrides<TData>
 }>
 
 /**
@@ -134,7 +141,6 @@ type ModelsPackage = Readonly<Record<string, OrmModel<any>>>
 export {
   ModelsPackage,
   ModelsFeaturesLayer,
-  ModelsNamespace,
   ModelServicesLayer,
   UpdateFunction,
   DeleteFunction,
@@ -144,4 +150,5 @@ export {
   RetrieveFunction,
   ModelFunctions,
   ModelServices,
+  CrudsOverrides,
 }

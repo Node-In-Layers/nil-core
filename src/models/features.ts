@@ -1,5 +1,5 @@
 import { DataDescription, OrmModel } from 'functional-models'
-import { Config, FeaturesContext } from '@node-in-layers/core'
+import { Config, FeaturesContext } from '../types.js'
 import {
   CrudsOptions,
   ModelServicesLayer,

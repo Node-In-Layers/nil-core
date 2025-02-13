@@ -4,6 +4,58 @@ import { features, services as layersServices } from '../../src/layers'
 import { createMockFs, validConfig2, validConfig3 } from '../mocks'
 import { Config, CoreNamespace, LogFormat, LogLevelNames } from '../../src'
 
+const modelsConfig1 = () => {
+  const create1 = sinon.stub().returns({})
+  const create2 = sinon.stub().returns({})
+  const create3 = sinon.stub().returns({})
+  const create4 = sinon.stub().returns({})
+  const create5 = sinon.stub().returns({})
+  const create6 = sinon.stub().returns({})
+
+  const app1 = {
+    name: 'app1',
+    create: {
+      services: create1,
+    },
+    services: sinon.stub().returns({ create: create1 }),
+  }
+  const app2 = {
+    name: 'app2',
+    create: {
+      services: create2,
+      features: create3,
+      layerA: create4,
+      layerB: create5,
+      layerC: create6,
+    },
+    layerA: {
+      create: create4,
+    },
+    layerB: {
+      create: create5,
+    },
+    layerC: {
+      create: create6,
+    },
+    services: {
+      create: create2,
+    },
+    features: {
+      create: create3,
+    },
+  }
+  return {
+    environment: 'unit-test',
+    systemName: 'nil-core',
+    [CoreNamespace.root]: {
+      apps: [app1, app2],
+      layerOrder: ['services', 'features'],
+      logFormat: LogFormat.full,
+      logLevel: LogLevelNames.silent,
+    },
+  }
+}
+
 const compositeLayersConfig1 = () => {
   const create1 = sinon.stub().returns({})
   const create2 = sinon.stub().returns({})

@@ -2,24 +2,65 @@ import get from 'lodash/get.js'
 import flatten from 'lodash/flatten.js'
 import omit from 'lodash/omit.js'
 import merge from 'lodash/merge.js'
+import {DataDescription, Model, ModelInstanceFetcher, ModelType, PrimaryKeyType} from 'functional-models'
 import {
   App,
   AppLayer,
-  LayerContext,
   CommonContext,
   CoreNamespace,
-  MaybePromise,
   FeaturesContext,
+  GenericLayer, GetModelPropsFunc,
+  LayerContext,
   LayerServices,
-  GenericLayer,
   LayerServicesLayer,
+  MaybePromise, ModelConstructor,
+  ServicesContext,
 } from './types.js'
-import { getLayersUnavailable } from './libs.js'
+import {getLayersUnavailable} from './libs.js'
+import {memoizeValue} from "./utils.js"
 
 const name = CoreNamespace.layers
 
+// @ts-ignore
+const DoNothingFetcher : ModelInstanceFetcher = (model: any, primarykey: PrimaryKeyType) : Promise<PrimaryKeyType> => Promise.resolve(primarykey)
+
 const services = {
   create: (): LayerServices => {
+
+    const getModelProps = <TModelOverrides extends object=object, TModelInstanceOverrides extends object=object>(context: ServicesContext) => {
+      const memoized = {}
+      // We have to create a self reference, so we have to set this to null, and then overwrite it.
+      // @ts-ignore
+      let getModel : (namespace: string, modelName: string) => any = null
+      const props = {
+        Model,
+        fetcher: DoNothingFetcher,
+        getModel,
+      }
+      props.getModel = <T extends DataDescription>(namespace: string, modelName: string) => {
+        const apps = context.config["@node-in-layers/core"].apps
+        const app = apps.find(a => a.name === namespace)
+        if (!app || !app.models) {
+          throw new Error(`An app with models does not exist for namespace ${namespace}`)
+        }
+
+        const models = app.models
+        const modelConstructor = models[modelName]
+        if (!modelConstructor) {
+          throw new Error(`A model named ${modelName} does not exist for namespace ${namespace}`)
+        }
+        if (!(namespace in memoized)) {
+          memoized[namespace] = {}
+        }
+        if (!(modelName in memoized)) {
+          const func = memoizeValue(() => modelConstructor<T, TModelOverrides, TModelInstanceOverrides>(props))
+          memoized[namespace][modelName] = func
+        }
+        return memoized[namespace][modelName]
+      }
+      return props
+    }
+
     const loadLayer = (
       app: App,
       layer: string,
@@ -29,6 +70,7 @@ const services = {
       if (!constructor?.create) {
         return undefined
       }
+
       const instance = constructor.create(context)
       if (!instance) {
         throw new Error(
@@ -39,6 +81,7 @@ const services = {
     }
 
     return {
+      getModelProps,
       loadLayer,
     }
   },
@@ -50,6 +93,7 @@ const isPromise = <T>(t: any): t is Promise<T> => {
   }
   return Boolean(t.then)
 }
+
 
 const features = {
   create: (context: CommonContext & LayerServicesLayer) => {
@@ -65,13 +109,61 @@ const features = {
       return commonContext
     }
 
+    const _getModelLoadedContext = (app: App, currentLayer: string, layerContext: LayerContext) : LayerContext => {
+      // If this is services, we need to load models first if they exist
+      if (currentLayer === 'services') {
+        if (app.models) {
+          const mfNamespace = context.config["@node-in-layers/core"].modelFactory || CoreNamespace.layers
+          const customMf = context.config["@node-in-layers/core"].customModelFactory || {}
+          const defaultMf = context.services[mfNamespace]
+          if (!defaultMf) {
+            throw new Error(`Namespace ${mfNamespace} does not have a services object`)
+          }
+          if (!defaultMf.getModelProps) {
+            throw new Error(`Namespace ${mfNamespace} does not have a services object with a getModelProps(context: ServicesContext) function`)
+          }
+          const models : Record<string, ModelConstructor> = app.models
+          // This function is added to the services context.
+          const getModels = memoizeValue(() => {
+            const defaultModelProps = defaultMf.getModelProps(layerContext)
+            const modelsObj = Object.entries(models).reduce((acc, [modelName, constructor]) => {
+              // Do we have a custom model props for this?
+              const custom = get(customMf, `${app.name}.${modelName}`)
+              const customModelProps = custom ? get(context, `services[${custom}].getModelProps`) : undefined
+              if (custom && !customModelProps) {
+                throw new Error(`Configuration requires that Model named ${modelName} receive a model props from ${custom}`)
+              }
+              const modelProps = customModelProps
+                ? (customModelProps as GetModelPropsFunc)(layerContext as ServicesContext)
+                : defaultModelProps
+
+              const instance = constructor(modelProps)
+              return merge(acc, {
+                [instance.getModelDefinition().pluralName]: instance
+              })
+            }, {} as Record<string, ModelType<any>>)
+            return modelsObj
+          })
+          return merge({}, layerContext, {
+            models: {
+              [app.name]: {
+                getModels,
+              }
+            }
+          })
+        }
+      }
+      return layerContext
+    }
+
     const _loadLayer = async (
       app: App,
       currentLayer: string,
       commonContext: LayerContext,
       previousLayer: LayerRecord | undefined
     ): Promise<LayerRecord> => {
-      const layerContext = _getLayerContext(commonContext, previousLayer)
+      const layerContext = _getModelLoadedContext(app, currentLayer, _getLayerContext(commonContext, previousLayer))
+
       const layer = context.services[CoreNamespace.layers].loadLayer(
         app,
         currentLayer,
