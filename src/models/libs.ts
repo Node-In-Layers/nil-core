@@ -5,10 +5,11 @@ import {
   OrmSearch,
   OrmSearchResult,
   PrimaryKeyType,
-  ToObjectResult
-} from "functional-models"
-import {CrudsOptions} from "./types.js"
-import merge from "lodash/merge.js"
+  ModelInstanceFetcher,
+  ToObjectResult,
+} from 'functional-models'
+import { CrudsOptions } from './types.js'
+import merge from 'lodash/merge.js'
 
 const createModelCruds = <TData extends DataDescription>(
   model: OrmModel<TData>,
@@ -39,7 +40,7 @@ const createModelCruds = <TData extends DataDescription>(
   ): Promise<OrmModelInstance<TData>> => {
     const pkName = model.getModelDefinition().primaryKeyName
     // @ts-ignore
-    const instance = model.create(merge({[pkName]: primaryKey}, data))
+    const instance = model.create(merge({ [pkName]: primaryKey }, data))
     return instance.save()
   }
 
@@ -65,6 +66,4 @@ const createModelCruds = <TData extends DataDescription>(
   }
 }
 
-  export {
-    createModelCruds,
-  }
+export { createModelCruds }

@@ -230,7 +230,7 @@ The ModelFactory is the base object that creates models. By default, Node In Lay
 
 However, a system can define a different ModelFactory that can provide extended functionality by modifying the configuration file. You can change both the default ModelFactory that all models receive and the ModelFactory for specific Models. This is common in multiple datastore situations.
 
-Here is an example where `@node-in-layers/data` is used to provide a backend database, therefore overriding the default ModelFactory. The value is a namespace, that will exist with a services context, that has a `getModelProps(storeName: string)` function.
+Here is an example where `@node-in-layers/data` is used to provide a backend database, therefore overriding the default ModelFactory. The value is a namespace, that will exist with a services context, that has a `getModelProps(context: string)` function.
 
 ```javascript
 // /config.prod.mjs
@@ -258,7 +258,9 @@ const core = {
     // Which namespace has the model/s we want to override?
     ['my-auth']: {
       // Which namespace has the services that contains our override?
-      Users: 'my-custom-model-factory',
+      Users: 'custom-namespace/app',
+      // Optional Form: First argument is the namespace, the rest are arguments that can be passed in. In this case, we are choosing a different datastore with @node-in-layers/data 
+      Keys: ['@node-in-layers/data', 'namedDatastore']
     },
   }
 }
@@ -268,6 +270,9 @@ const data = {
   databases: {
     default: {
       datastoreType: 'memory'
+    },
+    namedDatastore: {
+      datastoreType: 'dynamo'
     }
   }
 }
@@ -293,18 +298,18 @@ import { ModelProps } from '@node-in-layers/core'
 import { Vendor } from '../business/types'
 import { Vehicle, Driver } from '../types'
 
-const create = ({Model, fetcher, modelGetters}:ModelProps) => {
+const create = ({Model, fetcher, getModel}:ModelProps) => {
   return Model({
     pluralName: 'Vehicles',
     namespace: 'transportation',
     properties: {
       id: PrimaryKeyUuidProperty(),
-      // NOTE: Vendors is a function that gets the model. modelGetters.business.Vendors()
-      make: ModelReference<Vendor>(modelGetters.business.Vendors, { required: true }),
+      // NOTE: Vendors is a function that gets the model
+      make: ModelReference<Vendor>(getModel('business', 'Vendors'), { required: true }),
       model: TextProperty({ required: true }),
       color: TextProperty({ required: true }),
       // Drivers model is in the same app.
-      driver: ModelReference<Driver>(modelGetters.transportation.Drivers),
+      driver: ModelReference<Driver>(getModel('transportation', 'Drivers')),
     }
   })
 }

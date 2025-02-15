@@ -1,9 +1,21 @@
 /* eslint-disable no-magic-numbers */
 import {
-  DataDescription, ModelFactory, ModelInstanceFetcher, ModelReferenceProperty, ModelType,
+  DataDescription,
+  ModelFactory,
+  ModelInstanceFetcher,
+  ModelReferenceProperty,
+  ModelType,
 } from 'functional-models'
 
-type ModelConstructor = <T extends DataDescription, TModelExtensions extends object=object, TModelInstanceExtensions extends object=object>(modelProps: ModelProps) => ModelType<T, TModelExtensions, TModelInstanceExtensions>
+type ModelConstructor = Readonly<{
+  create: <
+    T extends DataDescription,
+    TModelExtensions extends object = object,
+    TModelInstanceExtensions extends object = object,
+  >(
+    modelProps: ModelProps
+  ) => ModelType<T, TModelExtensions, TModelInstanceExtensions>
+}>
 
 /**
  * An app.
@@ -155,16 +167,37 @@ type GenericLayer = Record<string, any>
  * Props that go into a model constructor.
  * @interface
  */
-type ModelProps<TModelOverrides extends object=object, TModelInstanceOverrides extends object=object> = Readonly<{
-  Model: ModelFactory<TModelOverrides, TModelOverrides>,
-  fetcher: ModelInstanceFetcher<TModelOverrides, TModelInstanceOverrides>,
-  getModel: <T extends DataDescription>(namespace: string, modelName: string) => () => ModelType<T, TModelOverrides, TModelInstanceOverrides>
+type ModelProps<
+  TModelOverrides extends object = object,
+  TModelInstanceOverrides extends object = object,
+> = Readonly<{
+  Model: ModelFactory<TModelOverrides, TModelOverrides>
+  fetcher: ModelInstanceFetcher<TModelOverrides, TModelInstanceOverrides>
+  getModel: <T extends DataDescription>(
+    namespace: string,
+    modelName: string
+  ) => () => ModelType<T, TModelOverrides, TModelInstanceOverrides>
+}>
+
+/**
+ * Custom model properties. getModel is provided by the framework.
+ * @interface
+ */
+type PartialModelProps<
+  TModelOverrides extends object = object,
+  TModelInstanceOverrides extends object = object,
+> = Readonly<{
+  Model: ModelFactory<TModelOverrides, TModelOverrides>
+  fetcher: ModelInstanceFetcher<TModelOverrides, TModelInstanceOverrides>
 }>
 
 /**
  * A function that can get model props from a services context.
  */
-type GetModelPropsFunc = (context: ServicesContext) => ModelProps
+type GetModelPropsFunc = (
+  context: ServicesContext,
+  ...args: any[]
+) => PartialModelProps
 
 /**
  * Services for the layer app
@@ -204,7 +237,7 @@ type LayerComponentNames = readonly string[]
 type SingleLayerName = string
 type LayerDescription = string | readonly string[]
 
-type ModelToModelFactoryNamespace = Record<string, string>
+type ModelToModelFactoryNamespace = Record<string, string | [string, any[]]>
 type NamespaceToFactory = Record<string, ModelToModelFactoryNamespace>
 
 /**
@@ -245,7 +278,7 @@ type Config = Readonly<{
     /**
      * Optional: The namespace to the app.services that has a "getModelProps()" function used for loading models
      */
-    modelFactory?: string,
+    modelFactory?: string
     /**
      * Optional: Provides granular getModelProps() for specific models.
      */
@@ -406,7 +439,6 @@ type System<
   features: TFeatures
 }
 
-
 export {
   Config,
   App,
@@ -436,4 +468,5 @@ export {
   ModelProps,
   ModelConstructor,
   GetModelPropsFunc,
+  PartialModelProps,
 }
