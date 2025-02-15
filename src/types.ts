@@ -1,4 +1,48 @@
 /* eslint-disable no-magic-numbers */
+import {
+  DataDescription,
+  ModelFactory,
+  ModelInstanceFetcher,
+  ModelType,
+} from 'functional-models'
+
+type ModelConstructor = Readonly<{
+  create: <
+    T extends DataDescription,
+    TModelExtensions extends object = object,
+    TModelInstanceExtensions extends object = object,
+  >(
+    modelProps: ModelProps
+  ) => ModelType<T, TModelExtensions, TModelInstanceExtensions>
+}>
+
+/**
+ * An app.
+ * @interface
+ */
+type App = Readonly<{
+  /**
+   * The name of the app
+   */
+  name: string
+  /**
+   * Optional: Services layer
+   */
+  services?: AppLayer<Config, any>
+  /**
+   * Optional: Features layer
+   */
+  features?: AppLayer<Config, any>
+  /**
+   * Optional: Globals layer
+   */
+  globals?: GlobalsLayer<Config, any>
+  /**
+   * Optional: Models
+   */
+  models?: Record<string, ModelConstructor>
+}>
+
 /**
  * Log Levels
  */
@@ -110,11 +154,64 @@ enum CoreNamespace {
   root = '@node-in-layers/core',
   globals = '@node-in-layers/core/globals',
   layers = '@node-in-layers/core/layers',
+  models = '@node-in-layers/core/models',
 }
 
+/**
+ * A generic layer
+ */
 type GenericLayer = Record<string, any>
 
+/**
+ * Props that go into a model constructor.
+ * @interface
+ */
+type ModelProps<
+  TModelOverrides extends object = object,
+  TModelInstanceOverrides extends object = object,
+> = Readonly<{
+  Model: ModelFactory<TModelOverrides, TModelOverrides>
+  fetcher: ModelInstanceFetcher<TModelOverrides, TModelInstanceOverrides>
+  getModel: <T extends DataDescription>(
+    namespace: string,
+    modelName: string
+  ) => () => ModelType<T, TModelOverrides, TModelInstanceOverrides>
+}>
+
+/**
+ * Custom model properties. getModel is provided by the framework.
+ * @interface
+ */
+type PartialModelProps<
+  TModelOverrides extends object = object,
+  TModelInstanceOverrides extends object = object,
+> = Readonly<{
+  Model: ModelFactory<TModelOverrides, TModelOverrides>
+  fetcher: ModelInstanceFetcher<TModelOverrides, TModelInstanceOverrides>
+}>
+
+/**
+ * A function that can get model props from a services context.
+ */
+type GetModelPropsFunc = (
+  context: ServicesContext,
+  ...args: any[]
+) => PartialModelProps
+
+/**
+ * Services for the layer app
+ */
 type LayerServices = Readonly<{
+  /**
+   * The standard default function for getting model props
+   */
+  getModelProps: (context: ServicesContext) => ModelProps
+  /**
+   * Loads a layer.
+   * @param app
+   * @param layer
+   * @param existingLayers
+   */
   loadLayer: (
     app: App,
     layer: string,
@@ -122,7 +219,14 @@ type LayerServices = Readonly<{
   ) => MaybePromise<GenericLayer | undefined>
 }>
 
+/**
+ * The services layer for the core layers app
+ * @interface
+ */
 type LayerServicesLayer = {
+  /**
+   * Services
+   */
   services: {
     [CoreNamespace.layers]: LayerServices
   }
@@ -131,6 +235,9 @@ type LayerServicesLayer = {
 type LayerComponentNames = readonly string[]
 type SingleLayerName = string
 type LayerDescription = string | readonly string[]
+
+type ModelToModelFactoryNamespace = Record<string, string | [string, any[]]>
+type NamespaceToFactory = Record<string, ModelToModelFactoryNamespace>
 
 /**
  * A basic config object
@@ -167,6 +274,18 @@ type Config = Readonly<{
      * Most often take the form of doing require/imports directly in the config.
      */
     apps: readonly App[]
+    /**
+     * Optional: The namespace to the app.services that has a "getModelProps()" function used for loading models
+     */
+    modelFactory?: string
+    /**
+     * Optional: When true, wrappers are built around models to bubble up CRUDS interfaces for models through services and features.
+     */
+    modelCruds?: boolean
+    /**
+     * Optional: Provides granular getModelProps() for specific models.
+     */
+    customModelFactory?: NamespaceToFactory
   }
 }>
 
@@ -235,7 +354,7 @@ type LayerContext<
 > = CommonContext<TConfig> & TContext
 
 /**
- * The context for a service
+ * A context for layers that consume services. (Services and features generally)
  * @interface
  */
 type ServicesContext<
@@ -245,6 +364,21 @@ type ServicesContext<
 > = LayerContext<
   TConfig,
   {
+    /**
+     * A models object that has namespace to an object that has "getModels()"
+     */
+    models: Record<
+      string,
+      {
+        /**
+         * Gets the models for this given namespace.
+         */
+        getModels: <TModelType extends ModelType<any>>() => Record<
+          string,
+          TModelType
+        >
+      }
+    >
     /**
      * A services object.
      */
@@ -277,7 +411,7 @@ type GlobalsLayer<
 }>
 
 /**
- * A context for layers
+ * A context for layers that consume features. (Features and entries generally)
  * @interface
  */
 type FeaturesContext<
@@ -323,29 +457,6 @@ type System<
   features: TFeatures
 }
 
-/**
- * An app.
- * @interface
- */
-type App = Readonly<{
-  /**
-   * The name of the app
-   */
-  name: string
-  /**
-   * Optional: Services layer
-   */
-  services?: AppLayer<Config, any>
-  /**
-   * Optional: Features layer
-   */
-  features?: AppLayer<Config, any>
-  /**
-   * Optional: Globals layer
-   */
-  globals?: GlobalsLayer<Config, any>
-}>
-
 export {
   Config,
   App,
@@ -372,4 +483,8 @@ export {
   LayerServices,
   GenericLayer,
   LayerServicesLayer,
+  ModelProps,
+  ModelConstructor,
+  GetModelPropsFunc,
+  PartialModelProps,
 }

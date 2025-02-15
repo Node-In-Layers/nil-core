@@ -1,8 +1,211 @@
 import { assert } from 'chai'
+import get from 'lodash/get'
 import sinon from 'sinon'
+import { Model, PrimaryKeyUuidProperty } from 'functional-models'
 import { features, services as layersServices } from '../../src/layers'
+import { DoNothingFetcher } from '../../src/libs'
 import { createMockFs, validConfig2, validConfig3 } from '../mocks'
 import { Config, CoreNamespace, LogFormat, LogLevelNames } from '../../src'
+
+const modelsConfig1 = () => {
+  const app1Models = {
+    Model1: {
+      create: sinon.stub().callsFake(props => {
+        return props.Model({
+          pluralName: 'Model1',
+          namespace: 'nil-core',
+          properties: {
+            id: PrimaryKeyUuidProperty(),
+          },
+        })
+      }),
+    },
+  }
+
+  const app2Models = {
+    Model2: {
+      create: sinon.stub().callsFake(props =>
+        props.Model({
+          pluralName: 'Model2',
+          namespace: 'nil-core',
+          properties: {
+            id: PrimaryKeyUuidProperty(),
+          },
+        })
+      ),
+    },
+  }
+
+  const app1Services = {
+    create: sinon.stub().returns({}),
+  }
+
+  const app2Services = {
+    create: sinon.stub().returns({}),
+  }
+
+  const app2Features = {
+    create: sinon.stub().returns({}),
+  }
+
+  const app1 = {
+    name: 'app1',
+    models: app1Models,
+    create: {
+      models: app1Models,
+      services: app1Services.create,
+    },
+    services: app1Services,
+  }
+  const app2 = {
+    name: 'app2',
+    models: app2Models,
+    create: {
+      models: app2Models,
+      services: app2Services.create,
+      features: app2Features.create,
+    },
+    features: app2Features,
+    services: app2Services,
+  }
+  return {
+    environment: 'unit-test',
+    systemName: 'nil-core',
+    [CoreNamespace.root]: {
+      apps: [app1, app2],
+      layerOrder: ['services', 'features'],
+      logFormat: LogFormat.full,
+      logLevel: LogLevelNames.silent,
+    },
+  }
+}
+
+const modelsConfig2 = () => {
+  const app1Models = {
+    Model1: {
+      create: sinon.stub().callsFake(props => {
+        return props.Model({
+          pluralName: 'Model1',
+          namespace: 'nil-core',
+          properties: {
+            id: PrimaryKeyUuidProperty(),
+          },
+        })
+      }),
+    },
+  }
+
+  const app2Models = {
+    Model2: {
+      create: sinon.stub().callsFake(props =>
+        props.Model({
+          pluralName: 'Model2',
+          namespace: 'nil-core',
+          properties: {
+            id: PrimaryKeyUuidProperty(),
+          },
+        })
+      ),
+    },
+  }
+
+  const app1Services = {
+    create: sinon.stub().returns({}),
+  }
+
+  const app2Services = {
+    create: sinon.stub().returns({}),
+  }
+
+  const app2Features = {
+    create: sinon.stub().returns({}),
+  }
+
+  const app1 = {
+    name: 'app1',
+    models: app1Models,
+    create: {
+      models: app1Models,
+      services: app1Services.create,
+    },
+    services: app1Services,
+  }
+  const app2 = {
+    name: 'app2',
+    models: app2Models,
+    create: {
+      models: app2Models,
+      services: app2Services.create,
+      features: app2Features.create,
+    },
+    features: app2Features,
+    services: app2Services,
+  }
+  return {
+    environment: 'unit-test',
+    systemName: 'nil-core',
+    [CoreNamespace.root]: {
+      apps: [app1, app2],
+      layerOrder: ['services', 'features'],
+      modelCruds: true,
+      logFormat: LogFormat.full,
+      logLevel: LogLevelNames.silent,
+    },
+  }
+}
+
+const customModelsConfig1 = () => {
+  const config = modelsConfig1()
+  const CustomModelFactory = sinon.stub().callsFake((...args) => {
+    // @ts-ignore
+    return Model(...args)
+  })
+  const CustomModelFactory2 = sinon.stub().callsFake((...args) => {
+    // @ts-ignore
+    return Model(...args)
+  })
+  const getModelProps = sinon.stub().returns({
+    Model: CustomModelFactory2,
+    fetcher: DoNothingFetcher,
+  })
+  const app3Services = {
+    create: sinon.stub().returns({
+      getModelProps,
+    }),
+  }
+  const customFactoryServices = {
+    create: sinon.stub().returns({
+      getModelProps: sinon.stub().returns({
+        Model: CustomModelFactory,
+        fetcher: DoNothingFetcher,
+      }),
+    }),
+  }
+  const apps = [
+    {
+      name: 'customFactory',
+      services: customFactoryServices,
+      CustomModelFactory,
+    },
+    {
+      name: 'app3',
+      services: app3Services,
+      CustomModelFactory2,
+    },
+    // @ts-ignore
+  ].concat(config[CoreNamespace.root].apps)
+  return {
+    environment: 'unit-test',
+    systemName: 'nil-core',
+    [CoreNamespace.root]: {
+      apps: apps,
+      layerOrder: ['services', 'features'],
+      logFormat: LogFormat.full,
+      logLevel: LogLevelNames.silent,
+      modelFactory: 'customFactory',
+    },
+  }
+}
 
 const compositeLayersConfig1 = () => {
   const create1 = sinon.stub().returns({})
@@ -88,6 +291,116 @@ const _setup = (config?: Config) => {
 describe('/src/layers.ts', () => {
   describe('#features.create()', () => {
     describe('#loadLayers()', () => {
+      it('should pass app1 models to app1 services', async () => {
+        const config = modelsConfig1()
+        const inputs = _setup(config)
+        const instance = features.create(inputs)
+        await instance.loadLayers()
+        const actual =
+          config[CoreNamespace.root].apps[0].create.services.getCall(0).args[0]
+            .models['app1'].getModels
+        assert.isOk(actual)
+      })
+      it('should have model CRUDS in services when modelCruds is true', async () => {
+        const config = modelsConfig2()
+        const inputs = _setup(config)
+        const instance = features.create(inputs)
+        const layers = await instance.loadLayers()
+        const actual = Object.keys(layers.services.app1.cruds)
+        const expected = ['Model1']
+        assert.isOk(actual)
+      })
+      it('should have model CRUDS in app2.features when modelCruds is true', async () => {
+        const config = modelsConfig2()
+        const inputs = _setup(config)
+        const instance = features.create(inputs)
+        const layers = await instance.loadLayers()
+        const actual = Object.keys(layers.features.app2.cruds)
+        const expected = ['Model1']
+        assert.isOk(actual)
+      })
+      it('should NOT have model CRUDS in app1.features when modelCruds is true because there are no features', async () => {
+        const config = modelsConfig2()
+        const inputs = _setup(config)
+        const instance = features.create(inputs)
+        const layers = await instance.loadLayers()
+        const actual = get(layers, 'features.app1.cruds')
+        assert.isUndefined(actual)
+      })
+      describe('#getModels()', () => {
+        it('should have Model1 in output', async () => {
+          const config = modelsConfig1()
+          const inputs = _setup(config)
+          const instance = features.create(inputs)
+          await instance.loadLayers()
+          const actual = config[CoreNamespace.root].apps[0].create.services
+            .getCall(0)
+            .args[0].models['app1'].getModels().Model1
+          assert.isOk(actual)
+        })
+        it('should NOT create Model1 if getModels isnt called', async () => {
+          const config = modelsConfig1()
+          const inputs = _setup(config)
+          const instance = features.create(inputs)
+          await instance.loadLayers()
+          assert.isFalse(
+            config[CoreNamespace.root].apps[0].models.Model1.create.called
+          )
+        })
+        it('should create Model1 when getModels() is called', async () => {
+          const config = modelsConfig1()
+          const inputs = _setup(config)
+          const instance = features.create(inputs)
+          await instance.loadLayers()
+          config[CoreNamespace.root].apps[0].create.services
+            .getCall(0)
+            .args[0].models['app1'].getModels()
+          assert.isTrue(
+            config[CoreNamespace.root].apps[0].models.Model1.create.called
+          )
+        })
+        it('should use CustomModelFactory provided by the config', async () => {
+          const config = customModelsConfig1()
+          const inputs = _setup(config)
+          const instance = features.create(inputs)
+          await instance.loadLayers()
+          config[CoreNamespace.root].apps[3].services.create
+            .getCall(0)
+            .args[0].models['app2'].getModels()
+          assert.isTrue(
+            config[CoreNamespace.root].apps[0].CustomModelFactory.called
+          )
+        })
+        describe('#getModel()', () => {
+          it('should pass app1 models via the getModel to app2 models', async () => {
+            const config = modelsConfig1()
+            const inputs = _setup(config)
+            const instance = features.create(inputs)
+            await instance.loadLayers()
+            config[CoreNamespace.root].apps[1].create.services
+              .getCall(0)
+              .args[0].models['app2'].getModels()
+            const actual = config[
+              CoreNamespace.root
+            ].apps[1].models.Model2.create
+              .getCall(0)
+              .args[0].getModel('app1', 'Model1')()
+              .getModelDefinition().pluralName
+            const expected = 'Model1'
+            assert.isOk(expected)
+          })
+        })
+      })
+      it('should pass app1 models to app1 services', async () => {
+        const config = modelsConfig1()
+        const inputs = _setup(config)
+        const instance = features.create(inputs)
+        await instance.loadLayers()
+        const actual =
+          config[CoreNamespace.root].apps[0].create.services.getCall(0).args[0]
+            .models['app1']
+        assert.isOk(actual)
+      })
       it('should call layerB of app2', async () => {
         const config = compositeLayersConfig1()
         const inputs = _setup(config)

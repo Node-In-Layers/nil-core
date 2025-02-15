@@ -1,6 +1,7 @@
 import get from 'lodash/get.js'
 import merge from 'lodash/merge.js'
 import log from 'loglevel'
+import { PrimaryKeyType, ModelInstanceFetcher } from 'functional-models'
 import { wrap } from './utils.js'
 import { Config, LogLevel, CoreNamespace, LayerDescription } from './types.js'
 
@@ -133,6 +134,12 @@ const getNamespace = (packageName: string, app?: string) => {
   return packageName
 }
 
+// @ts-ignore
+const DoNothingFetcher: ModelInstanceFetcher = (
+  model: any,
+  primarykey: PrimaryKeyType
+): Promise<PrimaryKeyType> => Promise.resolve(primarykey)
+
 export {
   featurePassThrough,
   getLogLevelName,
@@ -140,4 +147,5 @@ export {
   getLayersUnavailable,
   isConfig,
   getNamespace,
+  DoNothingFetcher,
 }
