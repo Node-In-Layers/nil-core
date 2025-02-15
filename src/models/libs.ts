@@ -5,57 +5,64 @@ import {
   OrmSearch,
   OrmSearchResult,
   PrimaryKeyType,
-  ModelInstanceFetcher,
   ToObjectResult,
 } from 'functional-models'
-import { CrudsOptions } from './types.js'
 import merge from 'lodash/merge.js'
+import { memoizeValueSync } from '../utils.js'
+import { CrudsOptions, ModelCrudsFunctions } from './types.js'
 
+/**
+ * Creates Model Cruds for a given model.
+ * @param model - The model to wrap
+ * @param options - Additional options and overrides
+ */
 const createModelCruds = <TData extends DataDescription>(
-  model: OrmModel<TData>,
+  model: OrmModel<TData> | (() => OrmModel<TData>),
   options?: CrudsOptions<TData>
-) => {
+): ModelCrudsFunctions<TData> => {
+  const _getModel = memoizeValueSync((): OrmModel<TData> => {
+    if (typeof model === 'function') {
+      return model()
+    }
+    return model
+  })
+
   const createFunction = (
     data: TData | ToObjectResult<TData>
   ): Promise<OrmModelInstance<TData>> => {
     // @ts-ignore
-    const instance = model.create(data)
+    const instance = _getModel().create(data)
     return instance.save()
   }
 
   const retrieveFunction = (
     primaryKey: PrimaryKeyType
   ): Promise<OrmModelInstance<TData> | undefined> => {
-    return model.retrieve(primaryKey)
+    return _getModel().retrieve(primaryKey)
   }
 
-  /**
-   *
-   * @param primaryKey
-   * @param data
-   */
   const updateFunction = (
     primaryKey: PrimaryKeyType,
     data: TData | ToObjectResult<TData>
   ): Promise<OrmModelInstance<TData>> => {
-    const pkName = model.getModelDefinition().primaryKeyName
+    const pkName = _getModel().getModelDefinition().primaryKeyName
     // @ts-ignore
     const instance = model.create(merge({ [pkName]: primaryKey }, data))
     return instance.save()
   }
 
   const deleteFunction = (primaryKey: PrimaryKeyType): Promise<void> => {
-    return model.delete(primaryKey)
+    return _getModel().delete(primaryKey)
   }
 
   const searchFunction = (
     ormSearch: OrmSearch
   ): Promise<OrmSearchResult<TData>> => {
-    return model.search(ormSearch)
+    return _getModel().search(ormSearch)
   }
 
   return {
-    getModel: () => model,
+    getModel: _getModel,
     create: createFunction,
     retrieve: retrieveFunction,
     update: updateFunction,

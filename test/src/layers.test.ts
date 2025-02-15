@@ -1,5 +1,5 @@
 import { assert } from 'chai'
-import merge from 'lodash/merge'
+import get from 'lodash/get'
 import sinon from 'sinon'
 import { Model, PrimaryKeyUuidProperty } from 'functional-models'
 import { features, services as layersServices } from '../../src/layers'
@@ -52,6 +52,7 @@ const modelsConfig1 = () => {
     name: 'app1',
     models: app1Models,
     create: {
+      models: app1Models,
       services: app1Services.create,
     },
     services: app1Services,
@@ -60,7 +61,7 @@ const modelsConfig1 = () => {
     name: 'app2',
     models: app2Models,
     create: {
-      models: app2Models.create,
+      models: app2Models,
       services: app2Services.create,
       features: app2Features.create,
     },
@@ -73,6 +74,80 @@ const modelsConfig1 = () => {
     [CoreNamespace.root]: {
       apps: [app1, app2],
       layerOrder: ['services', 'features'],
+      logFormat: LogFormat.full,
+      logLevel: LogLevelNames.silent,
+    },
+  }
+}
+
+const modelsConfig2 = () => {
+  const app1Models = {
+    Model1: {
+      create: sinon.stub().callsFake(props => {
+        return props.Model({
+          pluralName: 'Model1',
+          namespace: 'nil-core',
+          properties: {
+            id: PrimaryKeyUuidProperty(),
+          },
+        })
+      }),
+    },
+  }
+
+  const app2Models = {
+    Model2: {
+      create: sinon.stub().callsFake(props =>
+        props.Model({
+          pluralName: 'Model2',
+          namespace: 'nil-core',
+          properties: {
+            id: PrimaryKeyUuidProperty(),
+          },
+        })
+      ),
+    },
+  }
+
+  const app1Services = {
+    create: sinon.stub().returns({}),
+  }
+
+  const app2Services = {
+    create: sinon.stub().returns({}),
+  }
+
+  const app2Features = {
+    create: sinon.stub().returns({}),
+  }
+
+  const app1 = {
+    name: 'app1',
+    models: app1Models,
+    create: {
+      models: app1Models,
+      services: app1Services.create,
+    },
+    services: app1Services,
+  }
+  const app2 = {
+    name: 'app2',
+    models: app2Models,
+    create: {
+      models: app2Models,
+      services: app2Services.create,
+      features: app2Features.create,
+    },
+    features: app2Features,
+    services: app2Services,
+  }
+  return {
+    environment: 'unit-test',
+    systemName: 'nil-core',
+    [CoreNamespace.root]: {
+      apps: [app1, app2],
+      layerOrder: ['services', 'features'],
+      modelCruds: true,
       logFormat: LogFormat.full,
       logLevel: LogLevelNames.silent,
     },
@@ -225,6 +300,32 @@ describe('/src/layers.ts', () => {
           config[CoreNamespace.root].apps[0].create.services.getCall(0).args[0]
             .models['app1'].getModels
         assert.isOk(actual)
+      })
+      it('should have model CRUDS in services when modelCruds is true', async () => {
+        const config = modelsConfig2()
+        const inputs = _setup(config)
+        const instance = features.create(inputs)
+        const layers = await instance.loadLayers()
+        const actual = Object.keys(layers.services.app1.cruds)
+        const expected = ['Model1']
+        assert.isOk(actual)
+      })
+      it('should have model CRUDS in app2.features when modelCruds is true', async () => {
+        const config = modelsConfig2()
+        const inputs = _setup(config)
+        const instance = features.create(inputs)
+        const layers = await instance.loadLayers()
+        const actual = Object.keys(layers.features.app2.cruds)
+        const expected = ['Model1']
+        assert.isOk(actual)
+      })
+      it('should NOT have model CRUDS in app1.features when modelCruds is true because there are no features', async () => {
+        const config = modelsConfig2()
+        const inputs = _setup(config)
+        const instance = features.create(inputs)
+        const layers = await instance.loadLayers()
+        const actual = get(layers, 'features.app1.cruds')
+        assert.isUndefined(actual)
       })
       describe('#getModels()', () => {
         it('should have Model1 in output', async () => {

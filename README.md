@@ -80,6 +80,7 @@ One example is Express server code. There is considerable plumbing to get an exp
 ## Honorable Mentions
 
 ### Models - Data Enhanced
+
 Models are a first class concept in Node In Layers, and is described fully below.
 
 ### Utils - The Math Functions
@@ -153,14 +154,16 @@ So...
 - Sub-Layer 2 has access to Sub-Layer 1 as well as Layer 1
 - Sub-Layer 3 has access to Sub-Layers 1 and 2, as well as Layer 1
 
-
 # Models
+
 Models in Node in Layers are a first class concept. What this means, is that many, if not most, systems are built around data, and therefore the use of Models is anticipated and made as easy as possible with Node In Layers.
 
 With just a bit of configuration and convention, models are automatically configured and loaded and access is easy. Other additional modules such as the `@node-in-layers/data` package, take this to the next level by providing automatic REST for all the models.
 
 ## Creating Models
+
 You can create models for an app by creating a directory called "models" and inside placing one model per file. Like so:
+
 ```
 /src/transportation/models/
 /src/transportation/models/index.ts
@@ -169,23 +172,30 @@ You can create models for an app by creating a directory called "models" and ins
 ```
 
 When the models are loaded at run time, the index.ts file is examined for each of the model constructors. It should look like...
+
 ```typescript
 export * as Aircrafts from './aircrafts'
 export * as Vehicles from './vehicles'
 ```
 
 This way the system can do...
+
 ```typescript
 apps.yourApp.models.Aircrafts.create()
 ```
 
 If this index.ts file does not exist, and does not export your model, it is not read into the system.
 
-
 Model files should look like this:
+
 ```typescript
 // /src/transportation/models/Vehicle.ts
-import { ModelFactory, Orm, TextProperty, PrimaryKeyUuidProperty } from 'functional-models'
+import {
+  ModelFactory,
+  Orm,
+  TextProperty,
+  PrimaryKeyUuidProperty,
+} from 'functional-models'
 import { ModelProps } from '@node-in-layers/core'
 import { Vehicle } from '../types'
 
@@ -202,7 +212,7 @@ type Vehicle = Readonly<{
  * Your factory function to create your model.
  * @param props - You get a ModelFactory, a ModelFetcher, and a getModels() function, all of which can be used to create your model.
  */
-const create = ({Model, fetcher, getModels}:ModelProps) => {
+const create = ({ Model, fetcher, getModels }: ModelProps) => {
   return Model({
     pluralName: 'Vehicles',
     namespace: 'transportation',
@@ -210,22 +220,21 @@ const create = ({Model, fetcher, getModels}:ModelProps) => {
       id: PrimaryKeyUuidProperty(),
       make: TextProperty({ required: true }),
       model: TextProperty({ required: true }),
-      color: TextProperty({ required: true })
-    }
+      color: TextProperty({ required: true }),
+    },
   })
 }
-export {
-  create,
-}
-  
+export { create }
 ```
+
 NOTE: This is a simplified version just to show the file and folder structure, a full description of models and modeling can be found elsewhere.
 
-
 ## Models AutoLoaded For Services and Features
+
 Models are predominantly used in services and features, so they are therefore automatically implemented, wrapped and placed in each. This will now be explained.
 
-### ModelFactory 
+### ModelFactory
+
 The ModelFactory is the base object that creates models. By default, Node In Layers uses `import { Model } from 'functional-models'`. This provides basic Modelling functionality, but does not provide an ORM by default. This is to accommodate both front ends and backends, or other situations where the system isn't using the CRUDS functionality of modeling.
 
 However, a system can define a different ModelFactory that can provide extended functionality by modifying the configuration file. You can change both the default ModelFactory that all models receive and the ModelFactory for specific Models. This is common in multiple datastore situations.
@@ -245,36 +254,35 @@ const core = {
     import('./src/my-auth/index.js'),
     import('./src/my-app/index.js'),
   ]),
-  layerOrder: [
-    'services',
-    'features',
-  ],
+  layerOrder: ['services', 'features', 'entries'],
   logLevel: 'debug',
   logFormat: 'full',
   // Optional: Overrides the default
   modelFactory: '@node-in-layers/data',
+  // Needed for orm features. (Described below)
+  modelCruds: true,
   // Optional: Used for a multi-database situation.
   customModelFactory: {
     // Which namespace has the model/s we want to override?
     ['my-auth']: {
       // Which namespace has the services that contains our override?
       Users: 'custom-namespace/app',
-      // Optional Form: First argument is the namespace, the rest are arguments that can be passed in. In this case, we are choosing a different datastore with @node-in-layers/data 
-      Keys: ['@node-in-layers/data', 'namedDatastore']
+      // Optional Form: First argument is the namespace, the rest are arguments that can be passed in. In this case, we are choosing a different datastore with @node-in-layers/data
+      Keys: ['@node-in-layers/data', 'namedDatastore'],
     },
-  }
+  },
 }
 
 // @node-in-layers/data configuration
 const data = {
   databases: {
     default: {
-      datastoreType: 'memory'
+      datastoreType: 'memory',
     },
     namedDatastore: {
-      datastoreType: 'dynamo'
-    }
-  }
+      datastoreType: 'dynamo',
+    },
+  },
 }
 
 export default () => ({
@@ -283,51 +291,64 @@ export default () => ({
   [CoreNamespace.root]: core,
   [DataNamespace.root]: data,
 })
-
 ```
+
 #### NOTE: Model Loading Order
-You need to know that loading apps in order will affect the ability to reference other models. So if your model has a reference to another model, that model needs to be in an app loaded before your app. The one exception to this, is if your model is within the same app. 
+
+You need to know that loading apps in order will affect the ability to reference other models. So if your model has a reference to another model, that model needs to be in an app loaded before your app. The one exception to this, is if your model is within the same app.
 
 Here is an example of both a model that needs a model from a previously loaded app and the same app:
 
 ```typescript
 // /src/transportation/models/Vehicle.ts
-import { ModelFactory, Orm, TextProperty, PrimaryKeyUuidProperty } from 'functional-models'
+import {
+  ModelFactory,
+  Orm,
+  TextProperty,
+  PrimaryKeyUuidProperty,
+} from 'functional-models'
 import { ModelProps } from '@node-in-layers/core'
 // Business app is loaded before transportation
 import { Vendor } from '../business/types'
 import { Vehicle, Driver } from '../types'
 
-const create = ({Model, fetcher, getModel}:ModelProps) => {
+const create = ({ Model, fetcher, getModel }: ModelProps) => {
   return Model({
     pluralName: 'Vehicles',
     namespace: 'transportation',
     properties: {
       id: PrimaryKeyUuidProperty(),
       // NOTE: Vendors is a function that gets the model
-      make: ModelReference<Vendor>(getModel('business', 'Vendors'), { required: true }),
+      make: ModelReference<Vendor>(getModel('business', 'Vendors'), {
+        required: true,
+      }),
       model: TextProperty({ required: true }),
       color: TextProperty({ required: true }),
       // Drivers model is in the same app.
       driver: ModelReference<Driver>(getModel('transportation', 'Drivers')),
-    }
+    },
   })
 }
-export {
-  create,
-}
+export { create }
 ```
 
 #### NOTE: Custom Model Factories and Models
-You'll notice above that the custom model factory was created and provided in a different app, that exists BEFORE our models. This is extremely important. Models are loaded just before services, so that they can be provided to services. This means that any custom `getModelProps(storeName: string)` function must exist in a services prior to the currently being loaded services.
 
+You'll notice above that the custom model factory was created and provided in a different app, that exists BEFORE our models. This is extremely important. Models are loaded just before services, so that they can be provided to services. This means that any custom `getModelProps(storeName: string)` function must exist in a services prior to the currently being loaded services.
 
 ### Services
 
+Services have access to models in two different ways automatically.
 
+1. Accessing models directly
+1. Automatically generated CRUDS wrappers for models. (orm only)
 
-### Accessing Models in Services
+#### Accessing Models Directly
 
+Service layers can get direct access to models through the context. It takes this format
+`context.models[AppNamespace].getModels().ModelPluralName`
+
+Here is an example of this in action.
 
 ```typescript
 import { ModelType } from 'functional-models'
@@ -343,7 +364,7 @@ type ModelCrud = {
 }
 type Vehicle = {}
 
-type ModelContext<T extends object=object> = {
+type ModelContext<T extends object = object> = {
   getModels: () => T
 }
 
@@ -356,17 +377,91 @@ type TransportationModels = ModelContext<{
 const services = {
   create: (context: ServicesContext<Config, TransportationModels>) => {
     const myServiceThatNeedsModels = (v: Vehicle) => {
-      const instance = context.models.transportation.getModels().Vehicles.create(v)
+      const instance = context.models.transportation
+        .getModels()
+        .Vehicles.create(v)
       return instance.validate()
     }
-    
+
     return {
-      myServiceThatNeedsModels
+      myServiceThatNeedsModels,
     }
-  }
+  },
 }
 ```
 
+#### Automatically Generated CRUDS Wrappers
+
+The common way of accessing models, is through wrappers that are automatically built to expose a CRUDS api on a model. NOTE: This occurs when the system has been configured to have an ORM (unlike most frontends). This is shown below.
+
+Features can use these wrappers without having to know anything about "models", by just passing the data. This creates a streamline approach to exposing models all the way up to entries / such as a REST API. This same concept is applied at the features level (described below), so that there is a pathway from top to bottom to CRUDS models, <b>without having to write a bunch of boilerplate common in other systems like Django</b>.
+
+You can access the wrappers by doing the following:
+`context.services[AppNamespace].cruds.ModelPluralName`
+
+Each of these models contains the following functions:
+
+```typescript
+const create = (data: object) => Promise<object>
+const retrieve = (id: PrimaryKeyType) => Promise<object|undefined>
+const update = (id: PrimaryKeyType, data: object) => Promise<object>
+const delete = (id: PrimaryKeyType) => Promise<void>
+const search = (ormSearch: OrmSearch) => Promise<object>
+const getModel = () => OrmModel<object>
+```
+
+### Features
+
+Models are directly accessible by features, as well as through any service wrappers. Wrappers are only available when the system is configured to have an orm (shown down below).
+
+Included out of the box for orm systems, are feature level wrappers that wrap over the service wrappers, giving access to the CRUDS API higher than features. (Such as entries and REST apis).
+
+This can be access by doing...
+
+`context.features[AppNamespace].cruds.ModelPluralName`
+
+### Configuring System for ORM Models
+
+In order to enable service and feature CRUDS automatically the core configuration needs to have `modelCruds:true`. This is shown below:
+
+```javascript
+// /config.prod.mjs
+import { CoreNamespace } from '@node-in-layers/core/index.js'
+import { DataNamespace } from '@node-in-layers/data/index.js'
+
+// Core configurations
+const core = {
+  apps: await Promise.all([
+    import('@node-in-layers/data/index.js'),
+    import('./src/my-custom-model-factory/index.js'),
+    import('./src/my-auth/index.js'),
+    import('./src/my-app/index.js'),
+  ]),
+  layerOrder: ['services', 'features', 'entries'],
+  logLevel: 'debug',
+  logFormat: 'full',
+  //
+  modelFactory: '@node-in-layers/data',
+  // Optional: True gives CRUDS, False/Undefined does not
+  modelCruds: true,
+}
+
+// @node-in-layers/data configuration
+const data = {
+  databases: {
+    default: {
+      datastoreType: 'memory',
+    },
+  },
+}
+
+export default () => ({
+  systemName: 'my-example-system',
+  environment: 'prod',
+  [CoreNamespace.root]: core,
+  [DataNamespace.root]: data,
+})
+```
 
 # Cohesive Layers In Action
 

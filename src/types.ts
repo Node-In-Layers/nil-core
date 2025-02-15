@@ -3,7 +3,6 @@ import {
   DataDescription,
   ModelFactory,
   ModelInstanceFetcher,
-  ModelReferenceProperty,
   ModelType,
 } from 'functional-models'
 
@@ -280,6 +279,10 @@ type Config = Readonly<{
      */
     modelFactory?: string
     /**
+     * Optional: When true, wrappers are built around models to bubble up CRUDS interfaces for models through services and features.
+     */
+    modelCruds?: boolean
+    /**
      * Optional: Provides granular getModelProps() for specific models.
      */
     customModelFactory?: NamespaceToFactory
@@ -351,7 +354,7 @@ type LayerContext<
 > = CommonContext<TConfig> & TContext
 
 /**
- * The context for a service
+ * A context for layers that consume services. (Services and features generally)
  * @interface
  */
 type ServicesContext<
@@ -361,6 +364,21 @@ type ServicesContext<
 > = LayerContext<
   TConfig,
   {
+    /**
+     * A models object that has namespace to an object that has "getModels()"
+     */
+    models: Record<
+      string,
+      {
+        /**
+         * Gets the models for this given namespace.
+         */
+        getModels: <TModelType extends ModelType<any>>() => Record<
+          string,
+          TModelType
+        >
+      }
+    >
     /**
      * A services object.
      */
@@ -393,7 +411,7 @@ type GlobalsLayer<
 }>
 
 /**
- * A context for layers
+ * A context for layers that consume features. (Features and entries generally)
  * @interface
  */
 type FeaturesContext<

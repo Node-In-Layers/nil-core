@@ -2,13 +2,7 @@ import get from 'lodash/get.js'
 import flatten from 'lodash/flatten.js'
 import omit from 'lodash/omit.js'
 import merge from 'lodash/merge.js'
-import {
-  DataDescription,
-  Model,
-  ModelFactory,
-  ModelInstanceFetcher,
-  ModelType,
-} from 'functional-models'
+import { DataDescription, Model, ModelType } from 'functional-models'
 import {
   App,
   AppLayer,
@@ -27,25 +21,27 @@ import {
 } from './types.js'
 import { getLayersUnavailable, DoNothingFetcher } from './libs.js'
 import { memoizeValueSync } from './utils.js'
+import { createModelCruds } from './models/libs.js'
+import { ModelCrudsFunctions } from './models/types.js'
 
 const name = CoreNamespace.layers
 
-const _modelGetter = <
+const modelGetter = <
   TModelOverrides extends object = object,
   TModelInstanceOverrides extends object = object,
 >(
-  context: ServicesContext,
+  apps: readonly App[],
   modelProps: PartialModelProps
 ) => {
   const memoized = {}
   // We have to create a self reference, so we have to set this to null, and then overwrite it.
   // @ts-ignore
+  // eslint-disable-next-line functional/no-let
   let getModel: (namespace: string, modelName: string) => any = null
   getModel = <T extends DataDescription>(
     namespace: string,
     modelName: string
   ) => {
-    const apps = context.config['@node-in-layers/core'].apps
     const app = apps.find(a => a.name === namespace)
     if (!app || !app.models) {
       throw new Error(
@@ -61,6 +57,8 @@ const _modelGetter = <
       )
     }
     if (!(namespace in memoized)) {
+      // We are doing a memoized state so we need this
+      // eslint-disable-next-line functional/immutable-data
       memoized[namespace] = {}
     }
     if (!(modelName in memoized)) {
@@ -70,6 +68,8 @@ const _modelGetter = <
           getModel,
         })
       )
+      // We are doing a memoized state so we need this
+      // eslint-disable-next-line functional/immutable-data
       memoized[namespace][modelName] = func
     }
     return memoized[namespace][modelName]
@@ -86,14 +86,14 @@ const services = {
       context: ServicesContext
     ) => {
       const fetcher = DoNothingFetcher
-      const modelGetter = _modelGetter<
+      const modelGetterInstance = modelGetter<
         TModelOverrides,
         TModelInstanceOverrides
-      >(context, { Model, fetcher })
+      >(context.config[CoreNamespace.root].apps, { Model, fetcher })
       return {
         Model,
         fetcher,
-        getModel: modelGetter,
+        getModel: modelGetterInstance,
       }
     }
 
@@ -149,16 +149,16 @@ const features = {
       currentLayer: string,
       layerContext: LayerContext
     ): LayerContext => {
-      // If this is services, we need to load models first if they exist
-      if (currentLayer === 'services') {
-        if (app.models) {
+      if (app.models) {
+        // If this is services, we need to load models first if they exist
+        if (currentLayer === 'services') {
           const mfNamespace =
             context.config['@node-in-layers/core'].modelFactory ||
             CoreNamespace.layers
           const customMf =
             context.config['@node-in-layers/core'].customModelFactory || {}
-          // @ts-ignore
           const defaultMf =
+            // @ts-ignore
             layerContext.services[mfNamespace] || context.services[mfNamespace]
           if (!defaultMf) {
             throw new Error(
@@ -202,7 +202,10 @@ const features = {
                   )
                 }
 
-                const getModel = _modelGetter(layerContext, modelProps)
+                const getModel = modelGetter(
+                  context.config['@node-in-layers/core'].apps,
+                  modelProps
+                )
 
                 const instance = constructor.create({
                   ...modelProps,
@@ -216,10 +219,59 @@ const features = {
             )
             return modelsObj
           })
+
+          const serviceCruds = context.config['@node-in-layers/core'].modelCruds
+            ? Object.keys(models).reduce((acc, name) => {
+                return merge(acc, {
+                  [name]: createModelCruds(() => getModels()[name]),
+                })
+              }, {})
+            : undefined
+
+          return merge(
+            {},
+            layerContext,
+            serviceCruds
+              ? {
+                  services: {
+                    [app.name]: {
+                      cruds: serviceCruds,
+                    },
+                  },
+                }
+              : {},
+            {
+              models: {
+                [app.name]: {
+                  getModels,
+                },
+              },
+            }
+          )
+        } else if (
+          currentLayer === 'features' &&
+          context.config['@node-in-layers/core'].modelCruds
+        ) {
+          // We need to add the feature wrappers over service level wrappers.
+          const serviceWrappers: [string, ModelCrudsFunctions<any>][] =
+            // @ts-ignore
+            Object.entries(layerContext.services[app.name])
+          // @ts-ignore
+          const featureWrappers = serviceWrappers.reduce(
+            (acc, [name, cruds]) => {
+              return merge(acc, {
+                [name]: createModelCruds<any>(() => cruds.getModel(), {
+                  overrides: cruds,
+                }),
+              })
+            },
+            {}
+          )
+
           return merge({}, layerContext, {
-            models: {
+            features: {
               [app.name]: {
-                getModels,
+                cruds: featureWrappers,
               },
             },
           })
@@ -239,7 +291,6 @@ const features = {
         currentLayer,
         _getLayerContext(commonContext, previousLayer)
       )
-
       const layer = context.services[CoreNamespace.layers].loadLayer(
         app,
         currentLayer,
@@ -248,11 +299,14 @@ const features = {
       if (!layer) {
         return {}
       }
-      return {
-        [currentLayer]: {
-          [app.name]: isPromise<GenericLayer>(layer) ? await layer : layer,
+      return merge(
+        {
+          [currentLayer]: {
+            [app.name]: isPromise<GenericLayer>(layer) ? await layer : layer,
+          },
         },
-      }
+        layerContext
+      )
     }
 
     const _loadCompositeLayer = async (

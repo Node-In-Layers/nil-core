@@ -1,5 +1,5 @@
 import {
-  DataDescription, ModelType,
+  DataDescription,
   OrmModel,
   OrmModelInstance,
   OrmSearch,
@@ -7,17 +7,21 @@ import {
   PrimaryKeyType,
   ToObjectResult,
 } from 'functional-models'
-import { CoreNamespace } from '../types.js'
+import { Config, ServicesContext } from '../types.js'
 
 /**
  * The CRUDS functions for a model
  * @interface
  */
-type ModelFunctions<TData extends DataDescription, TModelExtensions extends object=object, TModelInstanceExtensions extends object=object> = Readonly<{
+type ModelCrudsFunctions<
+  TData extends DataDescription,
+  TModelExtensions extends object = object,
+  TModelInstanceExtensions extends object = object,
+> = Readonly<{
   /**
    * Gets the underlying model
    */
-  getModel: () => ModelType<TData, TModelExtensions, TModelInstanceExtensions>
+  getModel: () => OrmModel<TData, TModelExtensions, TModelInstanceExtensions>
   /**
    * The create function
    */
@@ -52,18 +56,7 @@ type ModelServices = Readonly<{
   createModelCruds: <TData extends DataDescription>(
     model: OrmModel<TData>,
     options?: CrudsOptions<TData>
-  ) => ModelFunctions<TData>
-}>
-
-/**
- * The Core Model Services Layer
- * @interface
- */
-type ModelServicesLayer = Readonly<{
-  /**
-   * Model Services
-   */
-  [CoreNamespace.models]: ModelServices
+  ) => ModelCrudsFunctions<TData>
 }>
 
 /**
@@ -101,26 +94,12 @@ type SearchFunction<TData extends DataDescription> = (
 ) => Promise<OrmSearchResult<TData>>
 
 /**
- * Core Models Features
- * @interface
- */
-type ModelsFeaturesLayer = Readonly<{
-  /**
-   * Creates a feature that is the CRUDS functions.
-   * @param model - The model to wrap
-   * @param options - The options to use.
-   */
-  createModelCruds: <TData extends DataDescription>(
-    model: OrmModel<TData>,
-    options?: CrudsOptions<TData>
-  ) => ModelFunctions<TData>
-}>
-
-/**
  * An object that provides overrides for default behavior.
  * @interface
  */
-type CrudsOverrides<TData extends DataDescription> = Partial<Omit<ModelFunctions<TData>, 'getModel'>>
+type CrudsOverrides<TData extends DataDescription> = Partial<
+  Omit<ModelCrudsFunctions<TData>, 'getModel'>
+>
 
 /**
  * Options for building CRUDS interfaces with a model
@@ -134,21 +113,30 @@ type CrudsOptions<TData extends DataDescription> = Readonly<{
 }>
 
 /**
- * Model PluralName to Model
+ * A services context, that exposes CRUDS models services.
  */
-type ModelsPackage = Readonly<Record<string, OrmModel<any>>>
+type ModelCrudsServicesContext<
+  TModels extends Record<string, ModelCrudsFunctions<any>>,
+  TConfig extends Config = Config,
+  TServices extends object = object,
+  TContext extends object = object,
+> = ServicesContext<
+  TConfig,
+  TServices & {
+    cruds: TModels
+  },
+  TContext
+>
 
 export {
-  ModelsPackage,
-  ModelsFeaturesLayer,
-  ModelServicesLayer,
   UpdateFunction,
   DeleteFunction,
   SearchFunction,
   CreateFunction,
   CrudsOptions,
   RetrieveFunction,
-  ModelFunctions,
+  ModelCrudsFunctions,
   ModelServices,
   CrudsOverrides,
+  ModelCrudsServicesContext,
 }
