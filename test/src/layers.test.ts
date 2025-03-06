@@ -154,6 +154,78 @@ const modelsConfig2 = () => {
   }
 }
 
+const modelsConfig3 = () => {
+  const app1Models = {
+    Model1: {
+      create: sinon.stub().callsFake(props => {
+        return props.Model({
+          pluralName: 'Model1',
+          namespace: 'nil-core',
+          properties: {
+            id: PrimaryKeyUuidProperty(),
+          },
+        })
+      }),
+    },
+  }
+
+  const app2Models = {
+    Model2: {
+      create: sinon.stub().callsFake(props =>
+        props.Model({
+          pluralName: 'Model2',
+          namespace: 'nil-core',
+          properties: {
+            id: PrimaryKeyUuidProperty(),
+          },
+        })
+      ),
+    },
+  }
+
+  const app3Services = {
+    create: sinon.stub().returns({}),
+  }
+  const app3Features = {
+    create: sinon.stub().returns({}),
+  }
+
+  const app1 = {
+    name: 'app1',
+    models: app1Models,
+    create: {
+      models: app1Models,
+    },
+  }
+  const app2 = {
+    name: 'app2',
+    models: app2Models,
+    create: {
+      models: app2Models,
+    },
+  }
+  const app3 = {
+    name: 'app3',
+    create: {
+      services: app3Services.create,
+      features: app3Features.create,
+    },
+    features: app3Features,
+    services: app3Services,
+  }
+  return {
+    environment: 'unit-test',
+    systemName: 'nil-core',
+    [CoreNamespace.root]: {
+      apps: [app1, app2, app3],
+      layerOrder: ['services', 'features'],
+      modelCruds: true,
+      logFormat: LogFormat.full,
+      logLevel: LogLevelNames.silent,
+    },
+  }
+}
+
 const customModelsConfig1 = () => {
   const config = modelsConfig1()
   const CustomModelFactory = sinon.stub().callsFake((...args) => {

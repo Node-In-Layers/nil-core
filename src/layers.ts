@@ -255,7 +255,7 @@ const features = {
           // We need to add the feature wrappers over service level wrappers.
           const serviceWrappers: [string, ModelCrudsFunctions<any>][] =
             // @ts-ignore
-            Object.entries(layerContext.services[app.name])
+            Object.entries(get(layerContext, `services.${app.name}`, {}))
           // @ts-ignore
           const featureWrappers = serviceWrappers.reduce(
             (acc, [name, cruds]) => {
