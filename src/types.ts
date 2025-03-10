@@ -99,6 +99,7 @@ type FSLike = Readonly<{
  */
 enum LogFormat {
   json = 'json',
+  custom = 'custom',
   simple = 'simple',
   full = 'full',
 }
@@ -112,27 +113,27 @@ type Logger = Readonly<{
    * Trace statement
    * @param msg
    */
-  trace: (...msg: any[]) => void
+  trace: (message: string, dataOrError?: object) => void
   /**
    * Debug statement
    * @param msg
    */
-  debug: (...msg: any[]) => void
+  debug: (message: string, dataOrError?: object) => void
   /**
    * An info statement
    * @param msg
    */
-  info: (...msg: any[]) => void
+  info: (message: string, dataOrError?: object) => void
   /**
    * Warning statement
    * @param msg
    */
-  warn: (...msg: any[]) => void
+  warn: (message: string, dataOrError?: object) => void
   /**
    * An error statement.
    * @param msg
    */
-  error: (...msg: any[]) => void
+  error: (message: string, dataOrError?: object) => void
 }>
 
 /**
@@ -264,6 +265,14 @@ type Config = Readonly<{
      * The format of log messages to the console.
      */
     logFormat: LogFormat
+    logMethod: (props: {
+      methodName: string
+      logLevel: LogLevel
+      loggerName: string
+      datetime: Date
+      message: string
+      data?: object
+    }) => void | Promise<void>
     /**
      * The layers to be loaded, in their order.
      * Can be either string names for regular layers, or an array of strings, for a composite layer with multiple sub-layers.

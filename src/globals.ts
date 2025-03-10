@@ -54,7 +54,7 @@ const services = {
       // eslint-disable-next-line functional/immutable-data
       log.methodFactory = function (methodName, logLevel, loggerName) {
         const rawMethod = originalFactory(methodName, logLevel, loggerName)
-        return function (message) {
+        return function (message, data) {
           const datetime = new Date().toISOString()
           rawMethod(
             `${datetime} ${getLogLevelName(logLevel)} [${String(loggerName)}] ${message}`
@@ -69,7 +69,7 @@ const services = {
       // eslint-disable-next-line functional/immutable-data
       log.methodFactory = function (methodName, logLevel, loggerName) {
         const rawMethod = originalFactory(methodName, logLevel, loggerName)
-        return function (message) {
+        return function (message, data) {
           const datetime = new Date().toISOString()
           rawMethod(
             JSON.stringify(
@@ -79,6 +79,7 @@ const services = {
                 loggerName:
                   loggerName === undefined ? undefined : String(loggerName),
                 logLevel: getLogLevelName(logLevel),
+                ...(data ? data : {}),
               },
               null
             )
@@ -101,9 +102,36 @@ const services = {
       log.rebuild()
     }
 
+    const useCustomLogFormat = (config: Config) => {
+      const method = config[CoreNamespace.root].logMethod
+      if (!method) {
+        throw new Error(
+          `Must include a logMethod function when logFormat=custom`
+        )
+      }
+      // eslint-disable-next-line functional/immutable-data
+      log.methodFactory = function (methodName, logLevel, loggerName) {
+        return function (message, data) {
+          const datetime = new Date()
+          return method({
+            datetime,
+            methodName,
+            logLevel,
+            loggerName: loggerName as string,
+            message,
+            data,
+          })
+        }
+      }
+      log.rebuild()
+    }
+
     const configureLogging = (config: Config) => {
       log.setLevel(config[CoreNamespace.root].logLevel)
       switch (config[CoreNamespace.root].logFormat) {
+        case LogFormat.custom:
+          useCustomLogFormat(config)
+          break
         case LogFormat.json:
           useJsonLogFormat()
           break
