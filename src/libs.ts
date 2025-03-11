@@ -55,11 +55,11 @@ const _configItemsToCheck: readonly ((config: Partial<Config>) => void)[] = [
   configItemIsArray(_getNamespaceProperty(CoreNamespace.root, 'layerOrder')),
   allAppsHaveAName,
   configItemIsType(
-    _getNamespaceProperty(CoreNamespace.root, 'logLevel'),
+    _getNamespaceProperty(CoreNamespace.root, 'logging.logLevel'),
     'string'
   ),
   configItemIsType(
-    _getNamespaceProperty(CoreNamespace.root, 'logFormat'),
+    _getNamespaceProperty(CoreNamespace.root, 'logging.logFormat'),
     'string'
   ),
 ]

@@ -159,7 +159,7 @@ const _getLogMethodFromFormat = (
  */
 const _subLogger = <TConfig extends Config = Config>(
   context: CommonContext<TConfig>,
-  logMethods: readonly LogMethod[],
+  logMethods: readonly LogMethod<TConfig>[],
   props: {
     names: readonly string[]
     ids?: readonly LogId[]
@@ -251,7 +251,7 @@ const standardLogger = <
  * @param logMethods - A list of log methods.
  */
 const compositeLogger = <TConfig extends Config = Config>(
-  logMethods: readonly LogMethod[]
+  logMethods: readonly LogMethod<TConfig>[]
 ): RootLogger<TConfig> => {
   const getLogger = (
     context: CommonContext<TConfig>,
