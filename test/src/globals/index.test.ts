@@ -7,8 +7,8 @@ import {
   validConfig1,
   deleteUnitTestConfig,
   writeUnitTestConfig,
-} from '../mocks'
-import { services, features } from '../../src/globals'
+} from '../../mocks'
+import { services, features } from '../../../src/globals/index'
 
 chai.use(asPromised)
 
@@ -29,7 +29,7 @@ const _setup = () => {
   }
 }
 
-describe('/src/globals.ts', () => {
+describe('/src/globals/index.ts', () => {
   describe('#services.create()', () => {
     it('should create a valid object', () => {
       const instance = services.create({

@@ -89,7 +89,7 @@ export default [
       'no-console': [
         'error',
         {
-          allow: ['warn', 'error', 'info', 'debug'],
+          allow: ['warn', 'error', 'info', 'debug', 'trace'],
         },
       ],
       'no-constant-condition': ['error'],

@@ -1,9 +1,14 @@
 import get from 'lodash/get.js'
 import merge from 'lodash/merge.js'
-import log from 'loglevel'
-import { PrimaryKeyType, ModelInstanceFetcher } from 'functional-models'
+import { ModelInstanceFetcher, PrimaryKeyType } from 'functional-models'
 import { wrap } from './utils.js'
-import { Config, LogLevel, CoreNamespace, LayerDescription } from './types.js'
+import {
+  Config,
+  CoreNamespace,
+  LayerDescription,
+  LogLevel,
+  LogLevelNames,
+} from './types.js'
 
 const featurePassThrough = wrap
 
@@ -63,7 +68,7 @@ const validateConfig = (config: Partial<Config>) => {
   _configItemsToCheck.forEach(x => x(config))
 }
 
-const getLogLevelName = (logLevel: log.LogLevelNumbers) => {
+const getLogLevelName = (logLevel: LogLevel) => {
   switch (logLevel) {
     case LogLevel.TRACE:
       return 'TRACE'
@@ -77,6 +82,25 @@ const getLogLevelName = (logLevel: log.LogLevelNumbers) => {
       return 'ERROR'
     case LogLevel.SILENT:
       return 'SILENT'
+    default:
+      throw new Error(`Unhandled log level ${logLevel}`)
+  }
+}
+
+const getLogLevelNumber = (logLevel: LogLevelNames) => {
+  switch (logLevel) {
+    case LogLevelNames.trace:
+      return LogLevel.TRACE
+    case LogLevelNames.warn:
+      return LogLevel.WARN
+    case LogLevelNames.debug:
+      return LogLevel.DEBUG
+    case LogLevelNames.info:
+      return LogLevel.INFO
+    case LogLevelNames.error:
+      return LogLevel.ERROR
+    case LogLevelNames.silent:
+      return LogLevel.SILENT
     default:
       throw new Error(`Unhandled log level ${logLevel}`)
   }
@@ -148,4 +172,5 @@ export {
   isConfig,
   getNamespace,
   DoNothingFetcher,
+  getLogLevelNumber,
 }

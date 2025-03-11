@@ -2,18 +2,17 @@ import nodeFS from 'node:fs'
 import nodePath from 'node:path'
 import merge from 'lodash/merge.js'
 import get from 'lodash/get.js'
-import log from 'loglevel'
-import { getLogLevelName, isConfig, validateConfig } from './libs.js'
+import { isConfig, validateConfig } from '../libs.js'
 import {
   Config,
   RootLogger,
-  LogFormat,
   App,
   CommonContext,
   CoreNamespace,
   NodeDependencies,
-} from './types.js'
-import { memoizeValue } from './utils.js'
+} from '../types.js'
+import { memoizeValue } from '../utils.js'
+import { standardLogger } from './logging.js'
 
 const name = CoreNamespace.globals
 
@@ -25,7 +24,7 @@ type GlobalsServicesProps = Readonly<{
 
 type GlobalsServices<TConfig extends Config> = Readonly<{
   loadConfig: () => Promise<TConfig>
-  configureLogging: (config: TConfig) => RootLogger
+  getRootLogger: () => RootLogger
   getConstants: () => {
     workingDirectory: string
     environment: string
@@ -49,105 +48,7 @@ const services = {
     workingDirectory,
     nodeOverrides,
   }: GlobalsServicesProps): GlobalsServices<TConfig> => {
-    const useFullLogFormat = () => {
-      const originalFactory = log.methodFactory
-      // eslint-disable-next-line functional/immutable-data
-      log.methodFactory = function (methodName, logLevel, loggerName) {
-        const rawMethod = originalFactory(methodName, logLevel, loggerName)
-        return function (message, data) {
-          const datetime = new Date().toISOString()
-          rawMethod(
-            `${datetime} ${getLogLevelName(logLevel)} [${String(loggerName)}] ${message}`
-          )
-        }
-      }
-      log.rebuild()
-    }
-
-    const useJsonLogFormat = () => {
-      const originalFactory = log.methodFactory
-      // eslint-disable-next-line functional/immutable-data
-      log.methodFactory = function (methodName, logLevel, loggerName) {
-        const rawMethod = originalFactory(methodName, logLevel, loggerName)
-        return function (message, data) {
-          const datetime = new Date().toISOString()
-          rawMethod(
-            JSON.stringify(
-              {
-                datetime,
-                message,
-                loggerName:
-                  loggerName === undefined ? undefined : String(loggerName),
-                logLevel: getLogLevelName(logLevel),
-                ...(data ? data : {}),
-              },
-              null
-            )
-          )
-        }
-      }
-      log.rebuild()
-    }
-
-    const useSimpleLogFormat = () => {
-      const originalFactory = log.methodFactory
-      // eslint-disable-next-line functional/immutable-data
-      log.methodFactory = function (methodName, logLevel, loggerName) {
-        const rawMethod = originalFactory(methodName, logLevel, loggerName)
-        return function (message) {
-          const datetime = new Date().toISOString()
-          rawMethod(`${datetime}: ${message}`)
-        }
-      }
-      log.rebuild()
-    }
-
-    const useCustomLogFormat = (config: Config) => {
-      const method = config[CoreNamespace.root].logMethod
-      if (!method) {
-        throw new Error(
-          `Must include a logMethod function when logFormat=custom`
-        )
-      }
-      // eslint-disable-next-line functional/immutable-data
-      log.methodFactory = function (methodName, logLevel, loggerName) {
-        return function (message, data) {
-          const datetime = new Date()
-          return method({
-            datetime,
-            methodName,
-            logLevel,
-            loggerName: loggerName as string,
-            message,
-            data,
-          })
-        }
-      }
-      log.rebuild()
-    }
-
-    const configureLogging = (config: Config) => {
-      log.setLevel(config[CoreNamespace.root].logLevel)
-      switch (config[CoreNamespace.root].logFormat) {
-        case LogFormat.custom:
-          useCustomLogFormat(config)
-          break
-        case LogFormat.json:
-          useJsonLogFormat()
-          break
-        case LogFormat.simple:
-          useSimpleLogFormat()
-          break
-        case LogFormat.full:
-          useFullLogFormat()
-          break
-        default:
-          throw new Error(
-            `LogFormat ${config[CoreNamespace.root].logFormat} is not supported`
-          )
-      }
-      return log
-    }
+    const getRootLogger = standardLogger
 
     const _findConfigPath = () => {
       const extensions = ['mjs', 'js']
@@ -208,7 +109,7 @@ const services = {
     return {
       loadConfig,
       getConstants,
-      configureLogging,
+      getRootLogger,
       getNodeServices,
       getGlobals,
     }
@@ -235,7 +136,7 @@ const features = {
 
       const commonGlobals = {
         config,
-        log: ourServices.configureLogging(config),
+        log: ourServices.getRootLogger(),
         node: ourServices.getNodeServices(),
         constants: ourServices.getConstants(),
       }

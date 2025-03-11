@@ -1,5 +1,5 @@
 import omit from 'lodash/omit.js'
-import * as globalsApp from './globals.js'
+import * as globalsApp from './globals/index.js'
 import * as layersApp from './layers.js'
 import { Config, CoreNamespace, NodeDependencies } from './types.js'
 
