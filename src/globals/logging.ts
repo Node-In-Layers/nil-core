@@ -83,7 +83,7 @@ const _shouldIgnore = (
     return true
   }
   const asInt2 = getLogLevelNumber(messageLogLevel)
-  return asInt < asInt2
+  return asInt > asInt2
 }
 
 /**
