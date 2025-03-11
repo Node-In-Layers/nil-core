@@ -255,8 +255,10 @@ const core = {
     import('./src/my-app/index.js'),
   ]),
   layerOrder: ['services', 'features', 'entries'],
-  logLevel: 'debug',
-  logFormat: 'full',
+  logging: {
+    logLevel: 'debug',
+    logFormat: 'full',
+  },
   // Optional: Overrides the default
   modelFactory: '@node-in-layers/data',
   // Needed for orm features. (Described below)
@@ -438,8 +440,10 @@ const core = {
     import('./src/my-app/index.js'),
   ]),
   layerOrder: ['services', 'features', 'entries'],
-  logLevel: 'debug',
-  logFormat: 'full',
+  logging: {
+    logLevel: 'debug',
+    logFormat: 'full',
+  },
   //
   modelFactory: '@node-in-layers/data',
   // Optional: True gives CRUDS, False/Undefined does not
