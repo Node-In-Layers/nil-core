@@ -74,8 +74,10 @@ const modelsConfig1 = () => {
     [CoreNamespace.root]: {
       apps: [app1, app2],
       layerOrder: ['services', 'features'],
-      logFormat: LogFormat.full,
-      logLevel: LogLevelNames.silent,
+      logging: {
+        logFormat: LogFormat.full,
+        logLevel: LogLevelNames.silent,
+      },
     },
   }
 }
@@ -148,8 +150,10 @@ const modelsConfig2 = () => {
       apps: [app1, app2],
       layerOrder: ['services', 'features'],
       modelCruds: true,
-      logFormat: LogFormat.full,
-      logLevel: LogLevelNames.silent,
+      logging: {
+        logFormat: LogFormat.full,
+        logLevel: LogLevelNames.silent,
+      },
     },
   }
 }
@@ -220,8 +224,82 @@ const modelsConfig3 = () => {
       apps: [app1, app2, app3],
       layerOrder: ['services', 'features'],
       modelCruds: true,
-      logFormat: LogFormat.full,
-      logLevel: LogLevelNames.silent,
+      logging: {
+        logFormat: LogFormat.full,
+        logLevel: LogLevelNames.silent,
+      },
+    },
+  }
+}
+
+const customLayer1 = () => {
+  const app1 = {
+    name: 'app1',
+    services: {
+      create: sinon.stub().returns({}),
+    },
+    features: {
+      create: sinon.stub().returns({}),
+    },
+    customLayer: {
+      create: sinon.stub().returns({ app1: 'custom' }),
+    },
+  }
+  const app2 = {
+    name: 'app2',
+    customLayer: {
+      create: sinon.stub().returns({}),
+    },
+  }
+  return {
+    environment: 'unit-test',
+    systemName: 'nil-core',
+    [CoreNamespace.root]: {
+      apps: [app1, app2],
+      layerOrder: ['services', 'features', ['entries', 'customLayer']],
+      logging: {
+        logFormat: LogFormat.full,
+        logLevel: LogLevelNames.silent,
+      },
+    },
+  }
+}
+
+const customLayer2 = () => {
+  const app1 = {
+    name: 'app1',
+    services: {
+      create: sinon.stub().returns({}),
+    },
+    features: {
+      create: sinon.stub().returns({}),
+    },
+    entries: {
+      create: sinon.stub().returns({}),
+    },
+    customLayer: {
+      create: sinon.stub().returns({ app1: 'custom' }),
+    },
+  }
+  const app2 = {
+    name: 'app2',
+    entries: {
+      create: sinon.stub().returns({}),
+    },
+    customLayer: {
+      create: sinon.stub().returns({}),
+    },
+  }
+  return {
+    environment: 'unit-test',
+    systemName: 'nil-core',
+    [CoreNamespace.root]: {
+      apps: [app1, app2],
+      layerOrder: ['services', 'features', ['entries', 'customLayer']],
+      logging: {
+        logFormat: LogFormat.full,
+        logLevel: LogLevelNames.silent,
+      },
     },
   }
 }
@@ -272,8 +350,10 @@ const customModelsConfig1 = () => {
     [CoreNamespace.root]: {
       apps: apps,
       layerOrder: ['services', 'features'],
-      logFormat: LogFormat.full,
-      logLevel: LogLevelNames.silent,
+      logging: {
+        logFormat: LogFormat.full,
+        logLevel: LogLevelNames.silent,
+      },
       modelFactory: 'customFactory',
     },
   }
@@ -325,8 +405,10 @@ const compositeLayersConfig1 = () => {
     [CoreNamespace.root]: {
       apps: [app1, app2],
       layerOrder: ['services', ['layerA', 'layerB', 'layerC'], 'features'],
-      logFormat: LogFormat.full,
-      logLevel: LogLevelNames.silent,
+      logging: {
+        logFormat: LogFormat.full,
+        logLevel: LogLevelNames.silent,
+      },
     },
   }
 }
@@ -363,6 +445,29 @@ const _setup = (config?: Config) => {
 describe('/src/layers.ts', () => {
   describe('#features.create()', () => {
     describe('#loadLayers()', () => {
+      it('should pass app1 customLayer to app2 customLayer even if app2 doesnt have a features layer', async () => {
+        const config = customLayer1()
+        const inputs = _setup(config)
+        const instance = features.create(inputs)
+        await instance.loadLayers()
+        const actual =
+          config[CoreNamespace.root].apps[1].customLayer.create.getCall(0)
+            .args[0].customLayer
+        const expected = {
+          app1: { app1: 'custom' },
+        }
+        assert.deepEqual(actual, expected)
+      })
+      it('should NOT pass app1 customLayer to app2 entries', async () => {
+        const config = customLayer2()
+        const inputs = _setup(config)
+        const instance = features.create(inputs)
+        await instance.loadLayers()
+        const actual =
+          config[CoreNamespace.root].apps[1].entries.create.getCall(0).args[0]
+            .customLayer
+        assert.isUndefined(actual)
+      })
       it('should pass app1 models to app1 services', async () => {
         const config = modelsConfig1()
         const inputs = _setup(config)

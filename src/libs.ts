@@ -118,13 +118,14 @@ const getLayersUnavailable = (allLayers: readonly LayerDescription[]) => {
       const antiLayers = allLayers.slice(index + 1)
       // If we are dealing with a composite, we need to break it up
       if (Array.isArray(layer)) {
-        return layer.reduce((inner, compositeLayer, i) => {
+        const compositeAnti = layer.reduce((inner, compositeLayer, i) => {
           // We don't want to give access to the composite layers further up ahead.
           const nestedAntiLayers = layer.slice(i + 1)
           return merge(inner, {
             [compositeLayer]: antiLayers.concat(nestedAntiLayers),
           })
         }, acc)
+        return compositeAnti
       }
       const key = getLayerKey(layer)
       return merge(acc, {
