@@ -151,6 +151,10 @@ const _getLogMethodFromFormat = (
   }
 }
 
+const _isErrorObj = (obj: any): obj is ErrorObject => {
+  return Boolean(get(obj, 'error'))
+}
+
 /**
  * Creates a sub logger
  * @param context - The context
@@ -177,15 +181,16 @@ const _subLogger = <TConfig extends Config = Config>(
         return
       }
       const funcs = getLogMethods.map(x => x(context))
-      const isError = Boolean(get(dataOrError, 'error'))
+      const isError = _isErrorObj(dataOrError)
       const data = merge({}, props.data, isError ? {} : dataOrError)
       const logMessage = {
         datetime: new Date(),
-        message,
-        names: props.names,
         logLevel,
+        message,
+        ids: props.ids,
+        names: props.names,
         data: Object.keys(data).length > 1 ? data : undefined,
-        error: isError ? dataOrError : undefined,
+        error: isError ? dataOrError.error : undefined,
       }
       funcs.map(x => x(logMessage))
     }

@@ -266,11 +266,8 @@ type LogMessage = Readonly<{
    * Additional data with the message.
    */
   data?: object
-  /**
-   * An error object, if this is an error.
-   */
-  error?: ErrorObject
-}>
+}> &
+  Partial<ErrorObject>
 
 /**
  * A base functionfunction that can handle a log message.
