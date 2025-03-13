@@ -1,5 +1,3 @@
-import nodeFS from 'node:fs'
-import nodePath from 'node:path'
 import merge from 'lodash/merge.js'
 import get from 'lodash/get.js'
 import { isConfig, validateConfig } from '../libs.js'
@@ -9,7 +7,6 @@ import {
   App,
   CommonContext,
   CoreNamespace,
-  NodeDependencies,
 } from '../types.js'
 import { memoizeValue } from '../utils.js'
 import { standardLogger } from './logging.js'
@@ -19,7 +16,6 @@ const name = CoreNamespace.globals
 type GlobalsServicesProps = Readonly<{
   environment: string
   workingDirectory: string
-  nodeOverrides?: Partial<NodeDependencies>
 }>
 
 type GlobalsServices<TConfig extends Config> = Readonly<{
@@ -29,7 +25,6 @@ type GlobalsServices<TConfig extends Config> = Readonly<{
     workingDirectory: string
     environment: string
   }
-  getNodeServices: () => NodeDependencies
   getGlobals: (
     commonGlobals: CommonContext<TConfig>,
     app: App
@@ -46,11 +41,12 @@ const services = {
   create: <TConfig extends Config>({
     environment,
     workingDirectory,
-    nodeOverrides,
   }: GlobalsServicesProps): GlobalsServices<TConfig> => {
     const getRootLogger = standardLogger
 
-    const _findConfigPath = () => {
+    const _findConfigPath = async () => {
+      const nodeFS = await import('node:fs')
+      const nodePath = await import('node:path')
       const extensions = ['mjs', 'js']
       return extensions
         .map(e => {
@@ -65,7 +61,7 @@ const services = {
 
     const _loadConfig = memoizeValue(async () => {
       process.chdir(workingDirectory)
-      const fullPath = _findConfigPath()
+      const fullPath = await _findConfigPath()
       if (!fullPath) {
         throw new Error(
           `Could not find a config.${environment} for mjs, or js.`
@@ -90,15 +86,6 @@ const services = {
       }
     }
 
-    const getNodeServices = () => {
-      return merge(
-        {
-          fs: nodeFS,
-        },
-        nodeOverrides || {}
-      )
-    }
-
     const getGlobals = (commonGlobals: CommonContext<TConfig>, app: App) => {
       if (app.globals) {
         return app.globals.create(commonGlobals)
@@ -110,7 +97,6 @@ const services = {
       loadConfig,
       getConstants,
       getRootLogger,
-      getNodeServices,
       getGlobals,
     }
   },
@@ -137,7 +123,6 @@ const features = {
       const commonGlobals = {
         config,
         log: ourServices.getRootLogger(),
-        node: ourServices.getNodeServices(),
         constants: ourServices.getConstants(),
       }
       const globals: TGlobals = await config[CoreNamespace.root].apps.reduce(

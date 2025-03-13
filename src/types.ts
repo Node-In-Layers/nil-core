@@ -74,27 +74,6 @@ enum LogLevelNames {
 type MaybePromise<T> = Promise<T> | T
 
 /**
- * A node:fs like object.
- * Useful for unit testing services that call the file system.
- * @interface
- */
-type FSLike = Readonly<{
-  mkdirSync: (path: string, options?: { recursive?: boolean }) => void
-  readFileSync: (path: string, encoding?: any) => string
-  writeFileSync: (path: string, data: any) => void
-  existsSync: (path: string) => boolean
-  lstatSync: (path: string) => {
-    isFile: () => boolean
-    isDirectory: () => boolean
-    isBlockDevice: () => boolean
-    isCharacterDevice: () => boolean
-    isSymbolicLink: () => boolean
-    isFIFO: () => boolean
-    isSocket: () => boolean
-  }
-}>
-
-/**
  * The format of log messages to the console.
  */
 enum LogFormat {
@@ -468,22 +447,10 @@ type AppLayer<
 }>
 
 /**
- * Node dependencies.
- * @interface
- */
-type NodeDependencies = Readonly<{
-  fs: FSLike
-}>
-
-/**
  * The base level context that everything recieves.
  * @interface
  */
 type CommonContext<TConfig extends Config = Config> = Readonly<{
-  /**
-   * Node dependencies
-   */
-  node: NodeDependencies
   /**
    * The configuration file.
    */
@@ -622,7 +589,6 @@ type System<
 export {
   Config,
   App,
-  FSLike,
   LogFormat,
   LogLevel,
   LogLevelNames,
@@ -637,7 +603,6 @@ export {
   CoreNamespace,
   FeaturesLayerFactory,
   Logger,
-  NodeDependencies,
   LayerComponentNames,
   SingleLayerName,
   LayerDescription,

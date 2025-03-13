@@ -1,7 +1,7 @@
 import omit from 'lodash/omit.js'
 import * as globalsApp from './globals/index.js'
 import * as layersApp from './layers.js'
-import { Config, CoreNamespace, NodeDependencies } from './types.js'
+import { Config, CoreNamespace } from './types.js'
 
 /**
  * Loads a node in layers system.
@@ -13,12 +13,10 @@ import { Config, CoreNamespace, NodeDependencies } from './types.js'
 const loadSystem = async <TConfig extends Config = Config>(args: {
   environment: string
   config?: TConfig
-  nodeOverrides?: NodeDependencies
 }) => {
   const globalServices = globalsApp.services.create({
     environment: args.environment,
     workingDirectory: process ? process.cwd() : '',
-    nodeOverrides: args.nodeOverrides,
   })
   const globalFeatures = globalsApp.features.create({
     services: {
