@@ -1,9 +1,14 @@
 import get from 'lodash/get.js'
 import merge from 'lodash/merge.js'
-import log from 'loglevel'
-import { PrimaryKeyType, ModelInstanceFetcher } from 'functional-models'
+import { ModelInstanceFetcher, PrimaryKeyType } from 'functional-models'
 import { wrap } from './utils.js'
-import { Config, LogLevel, CoreNamespace, LayerDescription } from './types.js'
+import {
+  Config,
+  CoreNamespace,
+  LayerDescription,
+  LogLevel,
+  LogLevelNames,
+} from './types.js'
 
 const featurePassThrough = wrap
 
@@ -50,11 +55,11 @@ const _configItemsToCheck: readonly ((config: Partial<Config>) => void)[] = [
   configItemIsArray(_getNamespaceProperty(CoreNamespace.root, 'layerOrder')),
   allAppsHaveAName,
   configItemIsType(
-    _getNamespaceProperty(CoreNamespace.root, 'logLevel'),
+    _getNamespaceProperty(CoreNamespace.root, 'logging.logLevel'),
     'string'
   ),
   configItemIsType(
-    _getNamespaceProperty(CoreNamespace.root, 'logFormat'),
+    _getNamespaceProperty(CoreNamespace.root, 'logging.logFormat'),
     'string'
   ),
 ]
@@ -63,7 +68,7 @@ const validateConfig = (config: Partial<Config>) => {
   _configItemsToCheck.forEach(x => x(config))
 }
 
-const getLogLevelName = (logLevel: log.LogLevelNumbers) => {
+const getLogLevelName = (logLevel: LogLevel) => {
   switch (logLevel) {
     case LogLevel.TRACE:
       return 'TRACE'
@@ -82,6 +87,25 @@ const getLogLevelName = (logLevel: log.LogLevelNumbers) => {
   }
 }
 
+const getLogLevelNumber = (logLevel: LogLevelNames) => {
+  switch (logLevel) {
+    case LogLevelNames.trace:
+      return LogLevel.TRACE
+    case LogLevelNames.warn:
+      return LogLevel.WARN
+    case LogLevelNames.debug:
+      return LogLevel.DEBUG
+    case LogLevelNames.info:
+      return LogLevel.INFO
+    case LogLevelNames.error:
+      return LogLevel.ERROR
+    case LogLevelNames.silent:
+      return LogLevel.SILENT
+    default:
+      throw new Error(`Unhandled log level ${logLevel}`)
+  }
+}
+
 const getLayerKey = (layerDescription: LayerDescription): string => {
   return Array.isArray(layerDescription)
     ? layerDescription.join('-')
@@ -94,13 +118,14 @@ const getLayersUnavailable = (allLayers: readonly LayerDescription[]) => {
       const antiLayers = allLayers.slice(index + 1)
       // If we are dealing with a composite, we need to break it up
       if (Array.isArray(layer)) {
-        return layer.reduce((inner, compositeLayer, i) => {
+        const compositeAnti = layer.reduce((inner, compositeLayer, i) => {
           // We don't want to give access to the composite layers further up ahead.
           const nestedAntiLayers = layer.slice(i + 1)
           return merge(inner, {
             [compositeLayer]: antiLayers.concat(nestedAntiLayers),
           })
         }, acc)
+        return compositeAnti
       }
       const key = getLayerKey(layer)
       return merge(acc, {
@@ -148,4 +173,5 @@ export {
   isConfig,
   getNamespace,
   DoNothingFetcher,
+  getLogLevelNumber,
 }

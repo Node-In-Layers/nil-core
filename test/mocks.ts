@@ -65,8 +65,10 @@ const validConfig1 = () => ({
       },
     ],
     layerOrder: ['services', 'features'],
-    logFormat: LogFormat.full,
-    logLevel: LogLevelNames.silent,
+    logging: {
+      logFormat: LogFormat.full,
+      logLevel: LogLevelNames.silent,
+    },
   },
 })
 
@@ -92,8 +94,10 @@ const validConfig2 = () => ({
       },
     ],
     layerOrder: ['services', 'features'],
-    logFormat: LogFormat.full,
-    logLevel: LogLevelNames.silent,
+    logging: {
+      logFormat: LogFormat.full,
+      logLevel: LogLevelNames.silent,
+    },
   },
 })
 
@@ -113,8 +117,10 @@ const validConfig3 = () => ({
       },
     ],
     layerOrder: ['services', 'features'],
-    logFormat: LogFormat.full,
-    logLevel: LogLevelNames.silent,
+    logging: {
+      logFormat: LogFormat.full,
+      logLevel: LogLevelNames.silent,
+    },
   },
 })
 

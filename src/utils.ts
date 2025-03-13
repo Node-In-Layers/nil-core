@@ -1,4 +1,4 @@
-import { randomUUID } from 'crypto'
+import { v4 } from 'uuid'
 import AsyncLock from 'async-lock'
 
 const wrap = <T extends Array<any>, U>(fn: (...args: T) => U) => {
@@ -31,7 +31,7 @@ const memoizeValueSync = <T, A extends Array<any>>(
 const memoizeValue = <T, A extends Array<any>>(
   method: (...args: A) => T | Promise<T>
 ): ((...args: A) => Promise<T>) => {
-  const key = randomUUID()
+  const key = v4()
   const lock = new AsyncLock()
   /* eslint-disable functional/no-let */
   let value: any = undefined

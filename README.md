@@ -255,8 +255,10 @@ const core = {
     import('./src/my-app/index.js'),
   ]),
   layerOrder: ['services', 'features', 'entries'],
-  logLevel: 'debug',
-  logFormat: 'full',
+  logging: {
+    logLevel: 'debug',
+    logFormat: 'full',
+  },
   // Optional: Overrides the default
   modelFactory: '@node-in-layers/data',
   // Needed for orm features. (Described below)
@@ -438,8 +440,10 @@ const core = {
     import('./src/my-app/index.js'),
   ]),
   layerOrder: ['services', 'features', 'entries'],
-  logLevel: 'debug',
-  logFormat: 'full',
+  logging: {
+    logLevel: 'debug',
+    logFormat: 'full',
+  },
   //
   modelFactory: '@node-in-layers/data',
   // Optional: True gives CRUDS, False/Undefined does not
@@ -535,3 +539,11 @@ Apps must be named uniquely across the system. Otherwise there will be name/laye
 The `src/` directory should contain sub-folders that are apps, and should generally be singular, unless it doesn't read well. Example: `src/auth` or `src/inventories`.
 
 Inside of these app folders, there should be the layers of the app, which can either be a single file for relatively small layers: `src/auth/services.ts` or a directory that has files under it for larger layers: `src/auth/services/index.ts`. Note: There should always be an index.ts in the app folder and any layer folder.
+
+# Some Gotchas
+
+## Do just-in-time configuring and memoization
+
+Because this framework, loads all of the layers at runtime, there are many situations where it is best to not configure things until they are needed. An example would be a database connection. Instead of configuring this connection in the base level of a `create()` function, it is often better to create a function inside of `create()` that the other functions use, when they are actually needed. And then further, memoizing that function call so that subsequent calls get the same object again and again.
+
+The biggest reason for this is performance.

@@ -255,7 +255,7 @@ const features = {
           // We need to add the feature wrappers over service level wrappers.
           const serviceWrappers: [string, ModelCrudsFunctions<any>][] =
             // @ts-ignore
-            Object.entries(layerContext.services[app.name])
+            Object.entries(get(layerContext, `services.${app.name}.cruds`, {}))
           // @ts-ignore
           const featureWrappers = serviceWrappers.reduce(
             (acc, [name, cruds]) => {
@@ -313,14 +313,20 @@ const features = {
       app: App,
       currentLayer: readonly string[],
       commonContext: LayerContext,
-      previousLayer: LayerRecord | undefined
+      previousLayer: LayerRecord | undefined,
+      antiLayers: (layer: string) => readonly string[]
     ): Promise<LayerRecord> => {
       return currentLayer.reduce(async (previousSubLayersP, layer) => {
         const previousSubLayers = isPromise(previousSubLayersP)
           ? await previousSubLayersP
           : previousSubLayersP
+        const layersToRemove = antiLayers(layer)
         // We need common context PLUS the previous layers.
-        const theContext = merge({}, commonContext, previousSubLayers)
+        const theContext = omit(
+          merge({}, commonContext, previousSubLayers),
+          layersToRemove
+        )
+        // @ts-ignore
         const layerContext = _getLayerContext(theContext, previousLayer)
         const loadedLayer = context.services[CoreNamespace.layers].loadLayer(
           app,
@@ -331,13 +337,14 @@ const features = {
           return previousSubLayers
         }
         // We have to create a NEW context to be passed along each time. If we put acc as the first arg, all the other sub-layers will magically get things they can't have.
-        return merge({}, previousSubLayers, {
+        const result = merge({}, previousSubLayers, {
           [layer]: {
             [app.name]: isPromise(loadedLayer)
               ? await loadedLayer
               : loadedLayer,
           },
         })
+        return result
       }, {})
     }
 
@@ -365,7 +372,10 @@ const features = {
               const acc = await accP
               const [existingLayers2, previousLayer] = acc
               const layersToRemove = Array.isArray(layer)
-                ? flatten(layer.map(antiLayers))
+                ? // Remove the composite layers from the anti-layers, this will be handled in the composite layer
+                  flatten(layer.map(antiLayers)).filter(
+                    x => layer.find(y => x === y) === false
+                  )
                 : antiLayers(layer as string)
 
               // We have to remove existing layers that we don't want to be exposed.
@@ -378,7 +388,8 @@ const features = {
                     app,
                     layer as string[],
                     correctContext,
-                    previousLayer
+                    previousLayer,
+                    antiLayers
                   )
                 : _loadLayer(
                     app,

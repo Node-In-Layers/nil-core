@@ -1,36 +1,30 @@
-import nodeFS from 'node:fs'
-import nodePath from 'node:path'
 import merge from 'lodash/merge.js'
 import get from 'lodash/get.js'
-import log from 'loglevel'
-import { getLogLevelName, isConfig, validateConfig } from './libs.js'
+import { isConfig, validateConfig } from '../libs.js'
 import {
   Config,
   RootLogger,
-  LogFormat,
   App,
   CommonContext,
   CoreNamespace,
-  NodeDependencies,
-} from './types.js'
-import { memoizeValue } from './utils.js'
+} from '../types.js'
+import { memoizeValue } from '../utils.js'
+import { standardLogger } from './logging.js'
 
 const name = CoreNamespace.globals
 
 type GlobalsServicesProps = Readonly<{
   environment: string
   workingDirectory: string
-  nodeOverrides?: Partial<NodeDependencies>
 }>
 
 type GlobalsServices<TConfig extends Config> = Readonly<{
   loadConfig: () => Promise<TConfig>
-  configureLogging: (config: TConfig) => RootLogger
+  getRootLogger: () => RootLogger
   getConstants: () => {
     workingDirectory: string
     environment: string
   }
-  getNodeServices: () => NodeDependencies
   getGlobals: (
     commonGlobals: CommonContext<TConfig>,
     app: App
@@ -47,81 +41,12 @@ const services = {
   create: <TConfig extends Config>({
     environment,
     workingDirectory,
-    nodeOverrides,
   }: GlobalsServicesProps): GlobalsServices<TConfig> => {
-    const useFullLogFormat = () => {
-      const originalFactory = log.methodFactory
-      // eslint-disable-next-line functional/immutable-data
-      log.methodFactory = function (methodName, logLevel, loggerName) {
-        const rawMethod = originalFactory(methodName, logLevel, loggerName)
-        return function (message) {
-          const datetime = new Date().toISOString()
-          rawMethod(
-            `${datetime} ${getLogLevelName(logLevel)} [${String(loggerName)}] ${message}`
-          )
-        }
-      }
-      log.rebuild()
-    }
+    const getRootLogger = standardLogger
 
-    const useJsonLogFormat = () => {
-      const originalFactory = log.methodFactory
-      // eslint-disable-next-line functional/immutable-data
-      log.methodFactory = function (methodName, logLevel, loggerName) {
-        const rawMethod = originalFactory(methodName, logLevel, loggerName)
-        return function (message) {
-          const datetime = new Date().toISOString()
-          rawMethod(
-            JSON.stringify(
-              {
-                datetime,
-                message,
-                loggerName:
-                  loggerName === undefined ? undefined : String(loggerName),
-                logLevel: getLogLevelName(logLevel),
-              },
-              null
-            )
-          )
-        }
-      }
-      log.rebuild()
-    }
-
-    const useSimpleLogFormat = () => {
-      const originalFactory = log.methodFactory
-      // eslint-disable-next-line functional/immutable-data
-      log.methodFactory = function (methodName, logLevel, loggerName) {
-        const rawMethod = originalFactory(methodName, logLevel, loggerName)
-        return function (message) {
-          const datetime = new Date().toISOString()
-          rawMethod(`${datetime}: ${message}`)
-        }
-      }
-      log.rebuild()
-    }
-
-    const configureLogging = (config: Config) => {
-      log.setLevel(config[CoreNamespace.root].logLevel)
-      switch (config[CoreNamespace.root].logFormat) {
-        case LogFormat.json:
-          useJsonLogFormat()
-          break
-        case LogFormat.simple:
-          useSimpleLogFormat()
-          break
-        case LogFormat.full:
-          useFullLogFormat()
-          break
-        default:
-          throw new Error(
-            `LogFormat ${config[CoreNamespace.root].logFormat} is not supported`
-          )
-      }
-      return log
-    }
-
-    const _findConfigPath = () => {
+    const _findConfigPath = async () => {
+      const nodeFS = await import('node:fs')
+      const nodePath = await import('node:path')
       const extensions = ['mjs', 'js']
       return extensions
         .map(e => {
@@ -136,7 +61,7 @@ const services = {
 
     const _loadConfig = memoizeValue(async () => {
       process.chdir(workingDirectory)
-      const fullPath = _findConfigPath()
+      const fullPath = await _findConfigPath()
       if (!fullPath) {
         throw new Error(
           `Could not find a config.${environment} for mjs, or js.`
@@ -161,15 +86,6 @@ const services = {
       }
     }
 
-    const getNodeServices = () => {
-      return merge(
-        {
-          fs: nodeFS,
-        },
-        nodeOverrides || {}
-      )
-    }
-
     const getGlobals = (commonGlobals: CommonContext<TConfig>, app: App) => {
       if (app.globals) {
         return app.globals.create(commonGlobals)
@@ -180,8 +96,7 @@ const services = {
     return {
       loadConfig,
       getConstants,
-      configureLogging,
-      getNodeServices,
+      getRootLogger,
       getGlobals,
     }
   },
@@ -207,8 +122,7 @@ const features = {
 
       const commonGlobals = {
         config,
-        log: ourServices.configureLogging(config),
-        node: ourServices.getNodeServices(),
+        log: ourServices.getRootLogger(),
         constants: ourServices.getConstants(),
       }
       const globals: TGlobals = await config[CoreNamespace.root].apps.reduce(
