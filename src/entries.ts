@@ -16,7 +16,7 @@ const loadSystem = async <TConfig extends Config = Config>(args: {
 }) => {
   const globalServices = globalsApp.services.create({
     environment: args.environment,
-    workingDirectory: process ? process.cwd() : '',
+    workingDirectory: typeof process !== 'undefined' ? process.cwd() : '',
   })
   const globalFeatures = globalsApp.features.create({
     services: {
