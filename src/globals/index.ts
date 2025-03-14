@@ -47,7 +47,7 @@ const services = {
     const _findConfigPath = async () => {
       const nodeFS = await import('node:fs')
       const nodePath = await import('node:path')
-      const extensions = ['mjs', 'js']
+      const extensions = ['mjs', 'js', 'mts', 'ts']
       return extensions
         .map(e => {
           return nodePath.resolve(
