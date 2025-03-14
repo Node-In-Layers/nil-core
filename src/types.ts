@@ -372,7 +372,7 @@ type CoreConfig = Readonly<{
     /**
      * When logFormat is tcp, these options are used to configure AXIOS.
      */
-    tcpLoggingOptions: Readonly<{
+    tcpLoggingOptions?: Readonly<{
       /**
        * The url to log to.
        */
@@ -385,7 +385,7 @@ type CoreConfig = Readonly<{
     /**
      * A custom RootLogger that replaces the default one.
      */
-    customLogger: RootLogger
+    customLogger?: RootLogger
   }
   /**
    * The layers to be loaded, in their order.
