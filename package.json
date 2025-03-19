@@ -1,7 +1,7 @@
 {
   "name": "@node-in-layers/core",
   "type": "module",
-  "version": "1.2.11",
+  "version": "1.2.12",
   "description": "The core library for the Node In Layers rapid web development framework.",
   "main": "index.js",
   "scripts": {
@@ -82,7 +82,7 @@
   "dependencies": {
     "async-lock": "^1.4.1",
     "axios": "^1.7.9",
-    "functional-models": "^3.0.12",
+    "functional-models": "^3.0.13",
     "import-meta-resolve": "^4.1.0",
     "lodash": "^4.17.21",
     "loglevel": "^1.9.2",
