@@ -3,6 +3,7 @@ import flatten from 'lodash/flatten.js'
 import get from 'lodash/get.js'
 import omit from 'lodash/omit.js'
 import axios from 'axios'
+import { v4 } from 'uuid'
 import { JsonAble } from 'functional-models'
 import { getLogLevelNumber } from '../libs.js'
 import {
@@ -46,7 +47,7 @@ const consoleLogFull = (logMessage: LogMessage) => {
     ? // @ts-ignore
       // eslint-disable-next-line no-console
       console[logMessage.logLevel](
-        `${logMessage.datetime} ${logMessage.logLevel} [${logMessage.logger}] {${_combineIds(logMessage.ids)}} ${logMessage.message}`
+        `${logMessage.datetime} ${logMessage.logLevel} ${logMessage.id} [${logMessage.logger}] {${_combineIds(logMessage.ids)}} ${logMessage.message}`
       )
     : // eslint-disable-next-line no-console
       console[logMessage.logLevel](
@@ -64,11 +65,18 @@ const consoleLogJson = (logMessage: LogMessage) => {
   console[logMessage.logLevel](
     JSON.stringify(
       {
+        id: logMessage.id,
         datetime: logMessage.datetime,
         logLevel: logMessage.logLevel,
         logger: logMessage.logger,
         message: logMessage.message,
-        ...omit(logMessage, ['datetime', 'message', 'logger', 'logLevel']),
+        ...omit(logMessage, [
+          'id',
+          'datetime',
+          'message',
+          'logger',
+          'logLevel',
+        ]),
       },
       null
     )
@@ -185,6 +193,7 @@ const _subLogger = <TConfig extends Config = Config>(
       const isError = _isErrorObj(dataOrError)
       const data = merge({}, props.data, isError ? {} : dataOrError)
       const logMessage = {
+        id: v4(),
         datetime: new Date(),
         logLevel,
         message,

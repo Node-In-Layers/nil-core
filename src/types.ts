@@ -228,6 +228,10 @@ type LogId = Readonly<Record<string, string>>
 type LogMessage<T extends Record<string, JsonAble> = Record<string, JsonAble>> =
   Readonly<{
     /**
+     * The unique id for this log message. Every log message has a unique id.
+     */
+    id: string
+    /**
      * The name of the logger. This is assembled from nested names joined with ':'.
      */
     logger: string
