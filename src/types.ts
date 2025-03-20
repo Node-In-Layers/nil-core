@@ -4,6 +4,7 @@ import {
   ModelFactory,
   ModelInstanceFetcher,
   ModelType,
+  JsonAble,
 } from 'functional-models'
 
 type ModelConstructor = Readonly<{
@@ -120,7 +121,7 @@ type ErrorObject = Readonly<{
     /**
      * Additional data as an object
      */
-    data?: object
+    data?: Record<string, JsonAble>
     /**
      * A trace of the error
      */
@@ -142,32 +143,47 @@ type Logger = Readonly<{
    * @param message - The logs message
    * @param dataOrError - An object of data, or an object with errors.
    */
-  trace: (message: string, dataOrError?: object | ErrorObject) => void
+  trace: (
+    message: string,
+    dataOrError?: Record<string, JsonAble> | ErrorObject
+  ) => void
   /**
    * Debug statement
    * @param msg
    */
-  debug: (message: string, dataOrError?: object | ErrorObject) => void
+  debug: (
+    message: string,
+    dataOrError?: Record<string, JsonAble> | ErrorObject
+  ) => void
   /**
    * An info statement
    * @param msg
    */
-  info: (message: string, dataOrError?: object | ErrorObject) => void
+  info: (
+    message: string,
+    dataOrError?: Record<string, JsonAble> | ErrorObject
+  ) => void
   /**
    * Warning statement
    * @param msg
    */
-  warn: (message: string, dataOrError?: object | ErrorObject) => void
+  warn: (
+    message: string,
+    dataOrError?: Record<string, JsonAble> | ErrorObject
+  ) => void
   /**
    * An error statement.
    * @param msg
    */
-  error: (message: string, dataOrError?: object | ErrorObject) => void
+  error: (
+    message: string,
+    dataOrError?: Record<string, JsonAble> | ErrorObject
+  ) => void
   /**
    * Embeds data, so that subsequent log messages (and loggers), can log that data without having to know details about it.
    * @param data
    */
-  applyData: (data: Record<string, any>) => Logger
+  applyData: (data: Record<string, JsonAble>) => Logger
   /**
    * Creates a logger by adding an id to the id stack.
    * @param name - The name of the logger
@@ -203,50 +219,38 @@ type RootLogger<TConfig extends Config = Config> = Readonly<{
  * A log id object.
  * @interface
  */
-type LogId = Readonly<{
-  /**
-   * The key/name for the id. Example: requestId, runtimeId,
-   */
-  key: string
-  /**
-   * The value of the id
-   */
-  value: string
-}>
+type LogId = Readonly<Record<string, string>>
 
 /**
  * A fully fleshed out log message.
  * @interface
  */
-type LogMessage = Readonly<{
-  /**
-   * The name stack of loggers to subloggers.
-   * The name at 0 is the first logger, followed by later loggers.
-   */
-  names: readonly string[]
-  /**
-   * A stack of ids that get added on and removed. Useful for tracing
-   * throughout a system.
-   */
-  ids?: readonly LogId[]
-  /**
-   * The log level
-   */
-  logLevel: LogLevelNames
-  /**
-   * The datetime of the message
-   */
-  datetime: Date
-  /**
-   * The log's message
-   */
-  message: string
-  /**
-   * Additional data with the message.
-   */
-  data?: object
-}> &
-  Partial<ErrorObject>
+type LogMessage<T extends Record<string, JsonAble> = Record<string, JsonAble>> =
+  Readonly<{
+    /**
+     * The name of the logger. This is assembled from nested names joined with ':'.
+     */
+    logger: string
+    /**
+     * A stack of ids that get added on and removed. Useful for tracing
+     * throughout a system. The first ones, are the oldest, and the last ones are the newest.
+     */
+    ids?: readonly LogId[]
+    /**
+     * The log level
+     */
+    logLevel: LogLevelNames
+    /**
+     * The datetime of the message
+     */
+    datetime: Date
+    /**
+     * The log's message
+     */
+    message: string
+  }> &
+    Partial<ErrorObject> &
+    T
 
 /**
  * A base functionfunction that can handle a log message.

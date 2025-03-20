@@ -3,6 +3,7 @@ import flatten from 'lodash/flatten.js'
 import get from 'lodash/get.js'
 import omit from 'lodash/omit.js'
 import axios from 'axios'
+import { JsonAble } from 'functional-models'
 import { getLogLevelNumber } from '../libs.js'
 import {
   CommonContext,
@@ -45,11 +46,11 @@ const consoleLogFull = (logMessage: LogMessage) => {
     ? // @ts-ignore
       // eslint-disable-next-line no-console
       console[logMessage.logLevel](
-        `${logMessage.datetime} ${logMessage.logLevel} [${logMessage.names.join(':')}] {${_combineIds(logMessage.ids)}} ${logMessage.message}`
+        `${logMessage.datetime} ${logMessage.logLevel} [${logMessage.logger}] {${_combineIds(logMessage.ids)}} ${logMessage.message}`
       )
     : // eslint-disable-next-line no-console
       console[logMessage.logLevel](
-        `${logMessage.datetime} ${logMessage.logLevel} [${logMessage.names.join(':')}] ${logMessage.message}`
+        `${logMessage.datetime} ${logMessage.logLevel} [${logMessage.logger}] ${logMessage.message}`
       )
 }
 
@@ -64,10 +65,10 @@ const consoleLogJson = (logMessage: LogMessage) => {
     JSON.stringify(
       {
         datetime: logMessage.datetime,
-        message: logMessage.message,
-        logger: logMessage.names.join(':'),
         logLevel: logMessage.logLevel,
-        ...omit(logMessage, ['datetime', 'message', 'names', 'logLevel']),
+        logger: logMessage.logger,
+        message: logMessage.message,
+        ...omit(logMessage, ['datetime', 'message', 'logger', 'logLevel']),
       },
       null
     )
@@ -167,7 +168,7 @@ const _subLogger = <TConfig extends Config = Config>(
   props: {
     names: readonly string[]
     ids?: readonly LogId[]
-    data?: Record<string, any>
+    data?: Record<string, JsonAble>
   }
 ): Logger => {
   const theLogLevel = context.config[CoreNamespace.root].logging.logLevel
@@ -176,7 +177,7 @@ const _subLogger = <TConfig extends Config = Config>(
 
   const _doLog =
     (logLevel: LogLevelNames) =>
-    (message: string, dataOrError?: object | ErrorObject) => {
+    (message: string, dataOrError?: Record<string, JsonAble> | ErrorObject) => {
       if (_shouldIgnore(theLogLevel, logLevel)) {
         return
       }
@@ -188,9 +189,10 @@ const _subLogger = <TConfig extends Config = Config>(
         logLevel,
         message,
         ids: props.ids,
-        names: props.names,
-        data: Object.keys(data).length > 1 ? data : undefined,
-        error: isError ? dataOrError.error : undefined,
+        logger: props.names.join(':'),
+        ...(isError ? { error: dataOrError.error } : {}),
+        ...data,
+        ...omit(props, ['ids', 'names', 'data', 'error']),
       }
       funcs.map(x => x(logMessage))
     }
@@ -215,7 +217,7 @@ const _subLogger = <TConfig extends Config = Config>(
         data: props.data,
       })
     },
-    applyData: (data: Record<string, any>) => {
+    applyData: (data: Record<string, JsonAble>) => {
       return _subLogger(context, logMethods, merge({}, props, data))
     },
   }
@@ -230,7 +232,7 @@ const standardLogger = <
   const getLogger = (
     context: CommonContext<TConfig>,
     name: string,
-    props?: { ids?: readonly LogId[]; data?: Record<string, any> }
+    props?: { ids?: readonly LogId[]; data?: Record<string, JsonAble> }
   ) => {
     if (context.config[CoreNamespace.root].logging.customLogger) {
       return context.config[CoreNamespace.root].logging.customLogger.getLogger(
@@ -261,12 +263,12 @@ const compositeLogger = <TConfig extends Config = Config>(
   const getLogger = (
     context: CommonContext<TConfig>,
     name: string,
-    props?: { ids?: readonly LogId[]; data?: Record<string, any> }
+    props?: { ids?: readonly LogId[]; data?: Record<string, JsonAble> }
   ) => {
     return _subLogger<TConfig>(context, logMethods, {
       names: [name],
       ids: props?.ids,
-      data: props?.data,
+      ...(props?.data ? props.data : {}),
     })
   }
 
