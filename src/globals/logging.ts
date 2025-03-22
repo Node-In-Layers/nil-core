@@ -232,6 +232,24 @@ const _subLogger = <TConfig extends Config = Config>(
   }
 }
 
+const _getIdsWithRuntime = (
+  runtimeId: string,
+  props?: { ids?: readonly LogId[] }
+) => {
+  const theIds: readonly LogId[] = [{ runtimeId }]
+  if (!props?.ids) {
+    return theIds
+  }
+  const ids = props.ids
+  const hasRuntimeId = ids.find(obj => {
+    return Object.keys(obj).find(y => y === 'runtimeId')
+  })
+  if (hasRuntimeId) {
+    return props.ids
+  }
+  return theIds.concat(props.ids)
+}
+
 /**
  * The standard RootLogger for the core library.
  */
@@ -244,10 +262,11 @@ const standardLogger = <
     props?: { ids?: readonly LogId[]; data?: Record<string, JsonAble> }
   ) => {
     if (context.config[CoreNamespace.root].logging.customLogger) {
+      const ids = _getIdsWithRuntime(context.constants.runtimeId, props)
       return context.config[CoreNamespace.root].logging.customLogger.getLogger(
         context,
         name,
-        props
+        merge({}, props, { ids })
       )
     }
     const logMethods = _getLogMethodFromFormat(
@@ -274,9 +293,10 @@ const compositeLogger = <TConfig extends Config = Config>(
     name: string,
     props?: { ids?: readonly LogId[]; data?: Record<string, JsonAble> }
   ) => {
+    const ids = _getIdsWithRuntime(context.constants.runtimeId, props)
     return _subLogger<TConfig>(context, logMethods, {
       names: [name],
-      ids: props?.ids,
+      ids,
       ...(props?.data ? props.data : {}),
     })
   }

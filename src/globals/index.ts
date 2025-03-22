@@ -1,4 +1,5 @@
 import merge from 'lodash/merge.js'
+import { v4 } from 'uuid'
 import get from 'lodash/get.js'
 import { isConfig, validateConfig } from '../libs.js'
 import {
@@ -16,12 +17,14 @@ const name = CoreNamespace.globals
 type GlobalsServicesProps = Readonly<{
   environment: string
   workingDirectory: string
+  runtimeId?: string
 }>
 
 type GlobalsServices<TConfig extends Config> = Readonly<{
   loadConfig: () => Promise<TConfig>
   getRootLogger: () => RootLogger
   getConstants: () => {
+    runtimeId: string
     workingDirectory: string
     environment: string
   }
@@ -41,6 +44,7 @@ const services = {
   create: <TConfig extends Config>({
     environment,
     workingDirectory,
+    runtimeId,
   }: GlobalsServicesProps): GlobalsServices<TConfig> => {
     const getRootLogger = standardLogger
 
@@ -81,6 +85,7 @@ const services = {
 
     const getConstants = () => {
       return {
+        runtimeId: runtimeId || v4(),
         workingDirectory,
         environment,
       }

@@ -479,6 +479,10 @@ type CommonContext<TConfig extends Config = Config> = Readonly<{
      * The working directory.
      */
     workingDirectory: string
+    /**
+     * A uuid that represents the runtime.
+     */
+    runtimeId: string
   }
 }>
 
