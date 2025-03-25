@@ -47,7 +47,7 @@ const createModelCruds = <TData extends DataDescription>(
   ): Promise<OrmModelInstance<TData>> => {
     const pkName = _getModel().getModelDefinition().primaryKeyName
     // @ts-ignore
-    const instance = model.create(merge({ [pkName]: primaryKey }, data))
+    const instance = _getModel().create(merge({ [pkName]: primaryKey }, data))
     return instance.save()
   }
 
