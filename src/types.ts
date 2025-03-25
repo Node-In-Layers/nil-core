@@ -195,6 +195,10 @@ type Logger = Readonly<{
    * @param name - The name of the sub logger.
    */
   getSubLogger: (name: string) => Logger
+  /**
+   * Gets all ids associated with this logger. Useful for passing on.
+   */
+  getIds: () => readonly LogId[]
 }>
 
 /**

@@ -207,6 +207,7 @@ const _subLogger = <TConfig extends Config = Config>(
     }
 
   return {
+    getIds: () => get(props, 'ids', [] as readonly LogId[]),
     debug: _doLog(LogLevelNames.debug),
     info: _doLog(LogLevelNames.info),
     warn: _doLog(LogLevelNames.warn),
