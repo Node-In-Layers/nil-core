@@ -47,11 +47,11 @@ const consoleLogFull = (logMessage: LogMessage) => {
     ? // @ts-ignore
       // eslint-disable-next-line no-console
       console[logMessage.logLevel](
-        `${logMessage.datetime} ${logMessage.logLevel} ${logMessage.id} [${logMessage.logger}] {${_combineIds(logMessage.ids)}} ${logMessage.message}`
+        `${logMessage.datetime} ${logMessage.environment} ${logMessage.logLevel} ${logMessage.id} [${logMessage.logger}] {${_combineIds(logMessage.ids)}} ${logMessage.message}`
       )
     : // eslint-disable-next-line no-console
       console[logMessage.logLevel](
-        `${logMessage.datetime} ${logMessage.logLevel} [${logMessage.logger}] ${logMessage.message}`
+        `${logMessage.datetime} ${logMessage.environment} ${logMessage.logLevel} [${logMessage.logger}] ${logMessage.message}`
       )
 }
 
@@ -70,6 +70,7 @@ const consoleLogJson = (logMessage: LogMessage) => {
         logLevel: logMessage.logLevel,
         logger: logMessage.logger,
         message: logMessage.message,
+        // Remove the ones listed above
         ...omit(logMessage, [
           'id',
           'datetime',
@@ -194,6 +195,7 @@ const _subLogger = <TConfig extends Config = Config>(
       const data = merge({}, props.data, isError ? {} : dataOrError)
       const logMessage = {
         id: v4(),
+        environment: context.constants.environment,
         datetime: new Date(),
         logLevel,
         message,

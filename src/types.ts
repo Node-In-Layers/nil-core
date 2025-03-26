@@ -240,6 +240,10 @@ type LogMessage<T extends Record<string, JsonAble> = Record<string, JsonAble>> =
      */
     logger: string
     /**
+     * The environment this log was produced in.
+     */
+    environment: string
+    /**
      * A stack of ids that get added on and removed. Useful for tracing
      * throughout a system. The first ones, are the oldest, and the last ones are the newest.
      */
