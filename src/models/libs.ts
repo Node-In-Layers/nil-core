@@ -27,8 +27,8 @@ const createModelCruds = <TData extends DataDescription>(
     return model
   })
 
-  const createFunction = (
-    data: TData | ToObjectResult<TData>
+  const createFunction = <IgnoreProperties extends string = ''>(
+    data: Omit<TData, IgnoreProperties> | ToObjectResult<TData>
   ): Promise<OrmModelInstance<TData>> => {
     // @ts-ignore
     const instance = _getModel().create(data)
