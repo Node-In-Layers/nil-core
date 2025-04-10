@@ -68,7 +68,7 @@ const services = {
       const fullPath = await _findConfigPath()
       if (!fullPath) {
         throw new Error(
-          `Could not find a config.${environment} for mjs, or js.`
+          `Could not find a config.${environment} for mts, ts, mjs, or js.`
         )
       }
       const url = new URL(`file://${fullPath}`)
@@ -127,7 +127,7 @@ const features = {
 
       const commonGlobals = {
         config,
-        log: ourServices.getRootLogger(),
+        rootLogger: ourServices.getRootLogger(),
         constants: ourServices.getConstants(),
       }
       const globals: TGlobals = await config[CoreNamespace.root].apps.reduce(

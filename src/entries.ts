@@ -28,6 +28,7 @@ const loadSystem = async <TConfig extends Config = Config>(args: {
   )
 
   const layersServices = layersApp.services.create()
+  // @ts-ignore
   const layersFeatures = layersApp.features.create({
     ...globals,
     services: {

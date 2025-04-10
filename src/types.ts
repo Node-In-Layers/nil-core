@@ -134,6 +134,114 @@ type ErrorObject = Readonly<{
 }>
 
 /**
+ * Common props that can be passed between layers
+ * @interface
+ */
+type CrossLayerProps<T extends object = object> = Readonly<{
+  logging?: {
+    ids?: readonly LogId[]
+  }
+}> &
+  T
+
+/**
+ * A function argument that types inputs and outputs.
+ */
+type TypedFunction<T, A extends Array<any>> = (...args: A) => T
+
+/**
+ * A function that is wrapped with logging calls.
+ */
+type LogWrapSync<T, A extends Array<any>> = (
+  functionLogger: FunctionLogger,
+  ...args: A
+) => T
+
+/**
+ * A function argument that types inputs and outputs and is a promise.
+ */
+type TypedFunctionAsync<T, A extends Array<any>> = (...args: A) => Promise<T>
+
+/**
+ * An Async function that is wrapped with logging functions.
+ */
+type LogWrapAsync<T, A extends Array<any>> = (
+  functionLogger: FunctionLogger,
+  ...args: A
+) => Promise<T>
+
+/**
+ * A function level logger.
+ */
+type FunctionLogger = Logger
+
+/**
+ * A logger for a layer. (Services/Features/etc)
+ * Already has the app's name appended to the logging data as well as the runtimeId.
+ * @interface
+ */
+type LayerLogger = Logger &
+  Readonly<{
+    /**
+     * Creates a logging wrap around a function. This should be used on asynchronous functions.
+     * Executes the function when called but will create a start and end message.
+     * The first argument is the logger, followed by the normal arguments.
+     * Should automatically handle error logging as well.
+     * NOTE: This function automatically handles crossLayerProps, assuming its the final argument in the function call.
+     * @param functionName - The name of the function
+     * @param func - The function itself
+     */
+    logWrapAsync: <T, A extends Array<any>>(
+      functionName: string,
+      func: LogWrapAsync<T, A>
+    ) => (...a: A) => Promise<T>
+    /**
+     * Creates a logging wrap around a synchronous function. This should be used on synchronous functions.
+     * Executes the function when called but will create a start and end message.
+     * The first argument is the logger, followed by the normal arguments.
+     * Should automatically handle error logging as well.
+     * NOTE: This function automatically handles crossLayerProps, assuming its the final argument in the function call.
+     * @param functionName - The name of the function
+     * @param func - The function itself
+     */
+    logWrapSync: <T, A extends Array<any>>(
+      functionName: string,
+      func: LogWrapSync<T, A>
+    ) => (...a: A) => T
+    /**
+     * Gets a function level logger. This is the primary recommended way of logging information.
+     * A common pattern is to wrap the
+     * @param name - The name of the function
+     * @param crossLayerProps - Any additional crossLayerProps.
+     */
+    getFunctionLogger: (
+      name: string,
+      crossLayerProps?: CrossLayerProps
+    ) => FunctionLogger
+  }>
+
+/**
+ * A logger for an app.
+ * @interface
+ */
+type AppLogger = Logger &
+  Readonly<{
+    getLayerLogger: (
+      layerName: CommonLayerName | string,
+      crossLayerProps?: CrossLayerProps
+    ) => LayerLogger
+  }>
+
+type GetAppLogger = (appName: string) => AppLogger
+
+enum CommonLayerName {
+  models = 'models',
+  services = 'services',
+  features = 'features',
+  entries = 'entries',
+}
+
+/**
  * A log object
  * @interface
  */
@@ -146,7 +254,7 @@ type Logger = Readonly<{
   trace: (
     message: string,
     dataOrError?: Record<string, JsonAble> | ErrorObject
-  ) => void
+  ) => MaybePromise<void>
   /**
    * Debug statement
    * @param msg
@@ -154,7 +262,7 @@ type Logger = Readonly<{
   debug: (
     message: string,
     dataOrError?: Record<string, JsonAble> | ErrorObject
-  ) => void
+  ) => MaybePromise<void>
   /**
    * An info statement
    * @param msg
@@ -162,7 +270,7 @@ type Logger = Readonly<{
   info: (
     message: string,
     dataOrError?: Record<string, JsonAble> | ErrorObject
-  ) => void
+  ) => MaybePromise<void>
   /**
    * Warning statement
    * @param msg
@@ -170,7 +278,7 @@ type Logger = Readonly<{
   warn: (
     message: string,
     dataOrError?: Record<string, JsonAble> | ErrorObject
-  ) => void
+  ) => MaybePromise<void>
   /**
    * An error statement.
    * @param msg
@@ -178,7 +286,7 @@ type Logger = Readonly<{
   error: (
     message: string,
     dataOrError?: Record<string, JsonAble> | ErrorObject
-  ) => void
+  ) => MaybePromise<void>
   /**
    * Embeds data, so that subsequent log messages (and loggers), can log that data without having to know details about it.
    * @param data
@@ -186,10 +294,8 @@ type Logger = Readonly<{
   applyData: (data: Record<string, JsonAble>) => Logger
   /**
    * Creates a logger by adding an id to the id stack.
-   * @param name - The name of the logger
-   * @param logId - The id object.
    */
-  getIdLogger: (name: string, logId: LogId) => Logger
+  getIdLogger: (name: string, logIdorKey: LogId | string, id?: string) => Logger
   /**
    * Gets a sub logger.
    * @param name - The name of the sub logger.
@@ -201,6 +307,11 @@ type Logger = Readonly<{
   getIds: () => readonly LogId[]
 }>
 
+type HighLevelLogger = Logger &
+  Readonly<{
+    getAppLogger: GetAppLogger
+  }>
+
 /**
  * A base level log object, that creates a logger
  * @interface
@@ -209,14 +320,12 @@ type RootLogger<TConfig extends Config = Config> = Readonly<{
   /**
    * Gets a logger object wrapping the components.
    * @param context - Context used for configuring a logger.
-   * @param name - The name of the component doing the logging. Could be an app, a function, etc.
    * @param props - Any additional logging information to include with the logger.
    */
   getLogger: (
     context: CommonContext<TConfig>,
-    name: string,
     props?: { ids?: readonly LogId[]; data?: Record<string, any> }
-  ) => Logger
+  ) => HighLevelLogger
 }>
 
 /**
@@ -354,6 +463,10 @@ type LayerServices = Readonly<{
  */
 type LayerServicesLayer = {
   /**
+   * A logger for this service.
+   */
+  log: LayerLogger
+  /**
    * Services
    */
   services: {
@@ -361,8 +474,6 @@ type LayerServicesLayer = {
   }
 }
 
-type LayerComponentNames = readonly string[]
-type SingleLayerName = string
 type LayerDescription = string | readonly string[]
 
 type ModelToModelFactoryNamespace = Record<string, string | [string, any[]]>
@@ -402,6 +513,15 @@ type CoreConfig = Readonly<{
      * A custom RootLogger that replaces the default one.
      */
     customLogger?: RootLogger
+    /**
+     * If using a function wrap with a LayerLogger, what LogLevel
+     * should it be at?
+     * Default: feature=info, services=trace everything else is debug
+     */
+    getFunctionWrapLogLevel?: (
+      layerName: string,
+      functionName?: string
+    ) => LogLevelNames
   }
   /**
    * The layers to be loaded, in their order.
@@ -474,7 +594,7 @@ type CommonContext<TConfig extends Config = Config> = Readonly<{
   /**
    * A root logger.
    */
-  log: RootLogger
+  rootLogger: RootLogger
   /**
    * Constants.
    */
@@ -500,7 +620,13 @@ type CommonContext<TConfig extends Config = Config> = Readonly<{
 type LayerContext<
   TConfig extends Config = Config,
   TContext extends object = object,
-> = CommonContext<TConfig> & TContext
+> = CommonContext<TConfig> &
+  TContext & {
+    /**
+     * The logger for this layer
+     */
+    log: LayerLogger
+  }
 
 /**
  * A context for layers that consume services. (Services and features generally)
@@ -623,8 +749,6 @@ export {
   CoreNamespace,
   FeaturesLayerFactory,
   Logger,
-  LayerComponentNames,
-  SingleLayerName,
   LayerDescription,
   MaybePromise,
   LayerServices,
@@ -640,4 +764,14 @@ export {
   LogId,
   CoreConfig,
   ErrorObject,
+  CommonLayerName,
+  CrossLayerProps,
+  AppLogger,
+  LayerLogger,
+  FunctionLogger,
+  HighLevelLogger,
+  TypedFunction,
+  TypedFunctionAsync,
+  LogWrapSync,
+  LogWrapAsync,
 }

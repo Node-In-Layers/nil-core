@@ -6,9 +6,9 @@ import { DataDescription, Model, ModelType } from 'functional-models'
 import {
   App,
   AppLayer,
+  AppLogger,
   CommonContext,
   CoreNamespace,
-  PartialModelProps,
   FeaturesContext,
   GenericLayer,
   GetModelPropsFunc,
@@ -17,9 +17,10 @@ import {
   LayerServicesLayer,
   MaybePromise,
   ModelConstructor,
+  PartialModelProps,
   ServicesContext,
 } from './types.js'
-import { getLayersUnavailable, DoNothingFetcher } from './libs.js'
+import { DoNothingFetcher, getLayersUnavailable } from './libs.js'
 import { memoizeValueSync } from './utils.js'
 import { createModelCruds } from './models/libs.js'
 import { ModelCrudsFunctions } from './models/types.js'
@@ -282,14 +283,18 @@ const features = {
 
     const _loadLayer = async (
       app: App,
+      appLogger: AppLogger,
       currentLayer: string,
       commonContext: LayerContext,
       previousLayer: LayerRecord | undefined
     ): Promise<LayerRecord> => {
+      const layerLogger = appLogger.getLayerLogger(currentLayer)
       const layerContext = _getModelLoadedContext(
         app,
         currentLayer,
-        _getLayerContext(commonContext, previousLayer)
+        Object.assign({}, _getLayerContext(commonContext, previousLayer), {
+          log: layerLogger,
+        })
       )
       const layer = context.services[CoreNamespace.layers].loadLayer(
         app,
@@ -311,6 +316,7 @@ const features = {
 
     const _loadCompositeLayer = async (
       app: App,
+      appLogger: AppLogger,
       currentLayer: readonly string[],
       commonContext: LayerContext,
       previousLayer: LayerRecord | undefined,
@@ -321,9 +327,10 @@ const features = {
           ? await previousSubLayersP
           : previousSubLayersP
         const layersToRemove = antiLayers(layer)
+        const layerLogger = appLogger.getLayerLogger(layer)
         // We need common context PLUS the previous layers.
         const theContext = omit(
-          merge({}, commonContext, previousSubLayers),
+          merge({}, commonContext, previousSubLayers, { log: layerLogger }),
           layersToRemove
         )
         // @ts-ignore
@@ -367,6 +374,9 @@ const features = {
         async (existingLayersP, app): Promise<FeaturesContext> => {
           const existingLayers = await existingLayersP
           type R = [LayerContext, LayerRecord]
+          const appLogger = context.rootLogger
+            .getLogger(context)
+            .getAppLogger(app.name)
           const result = await layersInOrder.reduce<Promise<R>>(
             async (accP, layer): Promise<R> => {
               const acc = await accP
@@ -386,6 +396,7 @@ const features = {
               const layerInstance = await (Array.isArray(layer)
                 ? _loadCompositeLayer(
                     app,
+                    appLogger,
                     layer as string[],
                     correctContext,
                     previousLayer,
@@ -393,6 +404,7 @@ const features = {
                   )
                 : _loadLayer(
                     app,
+                    appLogger,
                     layer as string,
                     correctContext,
                     previousLayer

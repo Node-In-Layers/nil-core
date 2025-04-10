@@ -1,3 +1,4 @@
+import { isPromise } from 'node:util/types'
 import merge from 'lodash/merge.js'
 import flatten from 'lodash/flatten.js'
 import get from 'lodash/get.js'
@@ -16,16 +17,32 @@ import {
   LogId,
   LogLevel,
   LogLevelNames,
+  LayerLogger,
   LogMessage,
   LogMethod,
   RootLogger,
+  CommonLayerName,
+  CrossLayerProps,
+  AppLogger,
+  LogWrapAsync,
+  LogWrapSync,
+  MaybePromise,
 } from '../types.js'
 import { memoizeValueSync } from '../utils.js'
+import { defaultGetFunctionWrapLogLevel, combineLoggingProps } from './lib.js'
 
 const MAX_LOGGING_ATTEMPTS = 5
 
 const _combineIds = (id: readonly LogId[]) => {
-  return id.map(i => `${i.key}:${i.value}`).join(';')
+  return id
+    .map(i => {
+      return Object.entries(i)
+        .map(([key, value]) => {
+          return `${key}:${value}`
+        })
+        .join(';')
+    })
+    .join(';')
 }
 
 /**
@@ -35,7 +52,9 @@ const _combineIds = (id: readonly LogId[]) => {
 const consoleLogSimple = (logMessage: LogMessage) => {
   // @ts-ignore
   // eslint-disable-next-line no-console
-  console[logMessage.logLevel](`${logMessage.datetime}: ${logMessage.message}`)
+  console[logMessage.logLevel](
+    `${logMessage.datetime.toISOString()}: ${logMessage.message}`
+  )
 }
 
 /**
@@ -47,11 +66,11 @@ const consoleLogFull = (logMessage: LogMessage) => {
     ? // @ts-ignore
       // eslint-disable-next-line no-console
       console[logMessage.logLevel](
-        `${logMessage.datetime} ${logMessage.environment} ${logMessage.logLevel} ${logMessage.id} [${logMessage.logger}] {${_combineIds(logMessage.ids)}} ${logMessage.message}`
+        `${logMessage.datetime.toISOString()} ${logMessage.environment} ${logMessage.logLevel} ${logMessage.id} [${logMessage.logger}] {${_combineIds(logMessage.ids)}} ${logMessage.message}`
       )
     : // eslint-disable-next-line no-console
       console[logMessage.logLevel](
-        `${logMessage.datetime} ${logMessage.environment} ${logMessage.logLevel} [${logMessage.logger}] ${logMessage.message}`
+        `${logMessage.datetime.toISOString()} ${logMessage.environment} ${logMessage.logLevel} [${logMessage.logger}] ${logMessage.message}`
       )
 }
 
@@ -66,7 +85,7 @@ const consoleLogJson = (logMessage: LogMessage) => {
     JSON.stringify(
       {
         id: logMessage.id,
-        datetime: logMessage.datetime,
+        datetime: logMessage.datetime.toISOString(),
         logLevel: logMessage.logLevel,
         logger: logMessage.logger,
         message: logMessage.message,
@@ -114,24 +133,27 @@ const logTcp = (context: CommonContext) => {
   })
   return (logMessage: LogMessage) => {
     // Sometimes, logging frameworks can fail, so we should try multiple attempts.
-    return [...new Array(MAX_LOGGING_ATTEMPTS)].reduce(async accP => {
-      const acc = await accP
-      if (acc) {
-        return acc
-      }
-      return axiosInstance({
-        data: logMessage,
-      })
-        .then(() => {
-          return true
+    return [...new Array(MAX_LOGGING_ATTEMPTS)].reduce(
+      async accP => {
+        const acc = await accP
+        if (acc) {
+          return acc
+        }
+        return axiosInstance({
+          data: logMessage,
         })
-        .catch(e => {
-          // TODO: Narrow down the scope of these catches
-          console.warn('Logging error')
-          console.warn(e)
-          return false
-        })
-    })
+          .then(() => {
+            return true
+          })
+          .catch(e => {
+            // TODO: Narrow down the scope of these catches
+            console.warn('Logging error')
+            console.warn(e)
+            return false
+          })
+      },
+      Promise.resolve(undefined) as Promise<any>
+    )
   }
 }
 
@@ -165,6 +187,113 @@ const _isErrorObj = (obj: any): obj is ErrorObject => {
   return Boolean(get(obj, 'error'))
 }
 
+const _layerLogger = <TConfig extends Config = Config>(
+  context: CommonContext<TConfig>,
+  subLogger: Logger,
+  layerName: CommonLayerName | string,
+  crossLayerProps?: CrossLayerProps
+): LayerLogger => {
+  const theLogger1 = subLogger.getSubLogger(layerName).applyData({
+    layer: layerName,
+  })
+  // we have to do this, to get the id being created
+  const theLogger = theLogger1.applyData(
+    combineLoggingProps(theLogger1, crossLayerProps)
+  )
+  const logLevelGetter =
+    get(
+      context,
+      `config${CoreNamespace.root}.logging.getFunctionWrapLogLevel`
+    ) || defaultGetFunctionWrapLogLevel
+
+  const getFunctionLogger = (
+    functionName: string,
+    crossLayerProps?: CrossLayerProps
+  ) => {
+    const funcLogger = theLogger
+      .getIdLogger(functionName, 'functionCall', v4())
+      .applyData({
+        function: functionName,
+      })
+    return funcLogger.applyData(
+      combineLoggingProps(funcLogger, crossLayerProps)
+    )
+  }
+
+  return merge({}, theLogger, {
+    logWrapAsync: <T, A extends Array<any>>(
+      functionName: string,
+      func: LogWrapAsync<T, A>
+    ) => {
+      // @ts-ignore
+      const logLevel = logLevelGetter(layerName, functionName)
+      return (...a: A) => {
+        const funcLogger = getFunctionLogger(functionName)
+        funcLogger[logLevel]('Executing feature')
+        // @ts-ignore
+        return func(funcLogger, ...a)
+          .then(r => {
+            funcLogger[logLevel]('Feature executed')
+            return r
+          })
+          .catch(e => {
+            funcLogger.error('Feature failed with an exception', {
+              error: {},
+            })
+            throw e
+          })
+      }
+    },
+    logWrapSync: <T, A extends Array<any>>(
+      functionName: string,
+      func: LogWrapSync<T, A>
+    ) => {
+      // @ts-ignore
+      const logLevel = logLevelGetter(layerName, functionName)
+      return (...a: A) => {
+        const funcLogger = getFunctionLogger(functionName)
+        funcLogger[logLevel]('Executing feature')
+        // eslint-disable-next-line
+        try {
+          // @ts-ignore
+          const result = func(funcLogger, ...a)
+          funcLogger[logLevel]('Feature executed')
+          return result
+        } catch (e) {
+          funcLogger.error('Feature failed with an exception', {
+            error: {},
+          })
+          throw e
+        }
+      }
+    },
+    getFunctionLogger,
+  })
+}
+
+const _appLogger = <TConfig extends Config = Config>(
+  context: CommonContext<TConfig>,
+  subLogger: Logger,
+  appName: string
+): AppLogger => {
+  const theLogger = subLogger.getSubLogger(appName).applyData({
+    app: appName,
+  })
+  return merge({}, theLogger, {
+    getLayerLogger: (
+      layerName: CommonLayerName | string,
+      crossLayerProps?: CrossLayerProps
+    ) => {
+      return _layerLogger<TConfig>(
+        context,
+        theLogger,
+        layerName,
+        crossLayerProps
+      )
+    },
+  })
+}
+
 /**
  * Creates a sub logger
  * @param context - The context
@@ -181,14 +310,16 @@ const _subLogger = <TConfig extends Config = Config>(
   }
 ): Logger => {
   const theLogLevel = context.config[CoreNamespace.root].logging.logLevel
-
   const getLogMethods = logMethods.map(memoizeValueSync)
 
   const _doLog =
     (logLevel: LogLevelNames) =>
-    (message: string, dataOrError?: Record<string, JsonAble> | ErrorObject) => {
+    (
+      message: string,
+      dataOrError?: Record<string, JsonAble> | ErrorObject
+    ): MaybePromise<void> => {
       if (_shouldIgnore(theLogLevel, logLevel)) {
-        return
+        return undefined
       }
       const funcs = getLogMethods.map(x => x(context))
       const isError = _isErrorObj(dataOrError)
@@ -205,7 +336,17 @@ const _subLogger = <TConfig extends Config = Config>(
         ...data,
         ...omit(props, ['ids', 'names', 'data', 'error']),
       }
-      funcs.map(x => x(logMessage))
+      const result = funcs.map(x => {
+        return x(logMessage)
+      })
+      const promises = result.filter(isPromise)
+      if (promises.length > 0) {
+        return Promise.resolve().then(async () => {
+          await Promise.all(promises)
+          return
+        })
+      }
+      return undefined
     }
 
   return {
@@ -222,7 +363,14 @@ const _subLogger = <TConfig extends Config = Config>(
         data: props.data,
       })
     },
-    getIdLogger: (name: string, logId: LogId) => {
+    getIdLogger: (name: string, logIdOrKey: LogId | string, value?: string) => {
+      const isObject = typeof logIdOrKey === 'object'
+      if (!isObject) {
+        if (!value) {
+          throw new Error(`Need value if providing a key`)
+        }
+      }
+      const logId = isObject ? logIdOrKey : { [logIdOrKey]: value as string }
       return _subLogger(context, logMethods, {
         names: props.names.concat(name),
         ids: get(props, 'ids', [] as LogId[]).concat(logId),
@@ -261,21 +409,19 @@ const standardLogger = <
 >(): RootLogger<TConfig> => {
   const getLogger = (
     context: CommonContext<TConfig>,
-    name: string,
     props?: { ids?: readonly LogId[]; data?: Record<string, JsonAble> }
   ) => {
     if (context.config[CoreNamespace.root].logging.customLogger) {
       const ids = _getIdsWithRuntime(context.constants.runtimeId, props)
       return context.config[CoreNamespace.root].logging.customLogger.getLogger(
         context,
-        name,
         merge({}, props, { ids })
       )
     }
     const logMethods = _getLogMethodFromFormat(
       context.config[CoreNamespace.root].logging.logFormat
     )
-    return compositeLogger<TConfig>(logMethods).getLogger(context, name, props)
+    return compositeLogger<TConfig>(logMethods).getLogger(context, props)
   }
 
   return {
@@ -293,14 +439,18 @@ const compositeLogger = <TConfig extends Config = Config>(
 ): RootLogger<TConfig> => {
   const getLogger = (
     context: CommonContext<TConfig>,
-    name: string,
     props?: { ids?: readonly LogId[]; data?: Record<string, JsonAble> }
   ) => {
     const ids = _getIdsWithRuntime(context.constants.runtimeId, props)
-    return _subLogger<TConfig>(context, logMethods, {
-      names: [name],
+    const subLogger = _subLogger<TConfig>(context, logMethods, {
+      names: [],
       ids,
       ...(props?.data ? props.data : {}),
+    })
+    return merge(subLogger, {
+      getAppLogger: (appName: string) => {
+        return _appLogger(context, subLogger, appName)
+      },
     })
   }
 

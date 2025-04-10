@@ -96,7 +96,7 @@ const validConfig2 = () => ({
     layerOrder: ['services', 'features'],
     logging: {
       logFormat: LogFormat.full,
-      logLevel: LogLevelNames.silent,
+      logLevel: LogLevelNames.debug,
     },
   },
 })
