@@ -29,7 +29,11 @@ import {
   MaybePromise,
 } from '../types.js'
 import { memoizeValueSync } from '../utils.js'
-import { defaultGetFunctionWrapLogLevel, combineLoggingProps } from './lib.js'
+import {
+  defaultGetFunctionWrapLogLevel,
+  combineLoggingProps,
+  isCrossLayerLoggingProps,
+} from './lib.js'
 
 const MAX_LOGGING_ATTEMPTS = 5
 
@@ -228,7 +232,11 @@ const _layerLogger = <TConfig extends Config = Config>(
       // @ts-ignore
       const logLevel = logLevelGetter(layerName, functionName)
       return (...a: A) => {
-        const funcLogger = getFunctionLogger(functionName)
+        const crossLayer =
+          a && a.length > 0 && isCrossLayerLoggingProps(a.slice(-1)[0])
+            ? a.slice(-1)[0]
+            : undefined
+        const funcLogger = getFunctionLogger(functionName, crossLayer)
         funcLogger[logLevel]('Executing feature')
         // @ts-ignore
         return func(funcLogger, ...a)
@@ -251,7 +259,11 @@ const _layerLogger = <TConfig extends Config = Config>(
       // @ts-ignore
       const logLevel = logLevelGetter(layerName, functionName)
       return (...a: A) => {
-        const funcLogger = getFunctionLogger(functionName)
+        const crossLayer =
+          a && a.length > 0 && isCrossLayerLoggingProps(a.slice(-1)[0])
+            ? a.slice(-1)[0]
+            : undefined
+        const funcLogger = getFunctionLogger(functionName, crossLayer)
         funcLogger[logLevel]('Executing feature')
         // eslint-disable-next-line
         try {

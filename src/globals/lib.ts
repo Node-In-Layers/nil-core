@@ -1,4 +1,5 @@
 import merge from 'lodash/merge.js'
+import get from 'lodash/get.js'
 import omit from 'lodash/omit.js'
 import { LogLevelNames, CrossLayerProps, Logger, LogId } from '../types.js'
 
@@ -60,4 +61,14 @@ const combineLoggingProps = (
   )
 }
 
-export { defaultGetFunctionWrapLogLevel, combineLoggingProps }
+const isCrossLayerLoggingProps = (
+  maybe?: CrossLayerProps
+): maybe is CrossLayerProps => {
+  return Boolean(get(maybe, 'logging.ids'))
+}
+
+export {
+  defaultGetFunctionWrapLogLevel,
+  combineLoggingProps,
+  isCrossLayerLoggingProps,
+}

@@ -48,7 +48,7 @@ const _getMockLogger = (context = undefined) => {
   }
 }
 
-describe.only('/src/globals/logging.ts', () => {
+describe('/src/globals/logging.ts', () => {
   describe('#consoleLogSimple()', () => {
     let consoleSpy: sinon.SinonStub
 
@@ -417,6 +417,28 @@ describe.only('/src/globals/logging.ts', () => {
           })
 
           describe('#logWrapSync()', () => {
+            it('should pass ids through crossLayer', () => {
+              const { context, logger, mockLogMethod } = _getMockLogger()
+              const wrappedFunc = logger
+                .getLogger(context)
+                .getAppLogger('myApp')
+                .getLayerLogger('features')
+                .logWrapSync(
+                  'myFunction',
+                  (log, args: object, crossLayer: any) => {}
+                )
+
+              wrappedFunc(
+                { my: 'args' },
+                { logging: { ids: [{ my: 'crossLayer' }] } }
+              )
+
+              const actual = mockLogMethod
+                .getCall(0)
+                .args[0].ids.find(x => 'my' in x)
+              assert.isOk(actual)
+            })
+
             it('should create two info messages when run and one debug when its a feature layer', () => {
               const { context, logger, mockLogMethod } = _getMockLogger()
               const wrappedFunc = logger
@@ -490,6 +512,27 @@ describe.only('/src/globals/logging.ts', () => {
           })
 
           describe('#logWrapAsync()', () => {
+            it('should pass ids through crossLayer', async () => {
+              const { context, logger, mockLogMethod } = _getMockLogger()
+              const wrappedFunc = logger
+                .getLogger(context)
+                .getAppLogger('myApp')
+                .getLayerLogger('features')
+                .logWrapAsync(
+                  'myFunction',
+                  (log, args: object, crossLayer: any) => Promise.resolve()
+                )
+
+              await wrappedFunc(
+                { my: 'args' },
+                { logging: { ids: [{ my: 'crossLayer' }] } }
+              )
+
+              const actual = mockLogMethod
+                .getCall(0)
+                .args[0].ids.find(x => 'my' in x)
+              assert.isOk(actual)
+            })
             it('should create two info messages when run and one debug when its a feature layer', async () => {
               const { context, logger, mockLogMethod } = _getMockLogger()
               const wrappedFunc = logger
