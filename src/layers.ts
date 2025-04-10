@@ -6,7 +6,6 @@ import { DataDescription, Model, ModelType } from 'functional-models'
 import {
   App,
   AppLayer,
-  AppLogger,
   CommonContext,
   CoreNamespace,
   FeaturesContext,
@@ -283,19 +282,23 @@ const features = {
 
     const _loadLayer = async (
       app: App,
-      appLogger: AppLogger,
       currentLayer: string,
       commonContext: LayerContext,
       previousLayer: LayerRecord | undefined
     ): Promise<LayerRecord> => {
-      const layerLogger = appLogger.getLayerLogger(currentLayer)
-      const layerContext = _getModelLoadedContext(
+      const layerContext1 = _getModelLoadedContext(
         app,
         currentLayer,
-        Object.assign({}, _getLayerContext(commonContext, previousLayer), {
-          log: layerLogger,
-        })
+        _getLayerContext(commonContext, previousLayer)
       )
+      const layerLogger = context.rootLogger
+        .getLogger(layerContext1)
+        .getAppLogger(app.name)
+        .getLayerLogger(currentLayer)
+      // eslint-disable-next-line
+      const layerContext = Object.assign(layerContext1, {
+        log: layerLogger,
+      })
       const layer = context.services[CoreNamespace.layers].loadLayer(
         app,
         currentLayer,
@@ -316,7 +319,6 @@ const features = {
 
     const _loadCompositeLayer = async (
       app: App,
-      appLogger: AppLogger,
       currentLayer: readonly string[],
       commonContext: LayerContext,
       previousLayer: LayerRecord | undefined,
@@ -326,13 +328,21 @@ const features = {
         const previousSubLayers = isPromise(previousSubLayersP)
           ? await previousSubLayersP
           : previousSubLayersP
+
         const layersToRemove = antiLayers(layer)
-        const layerLogger = appLogger.getLayerLogger(layer)
         // We need common context PLUS the previous layers.
-        const theContext = omit(
-          merge({}, commonContext, previousSubLayers, { log: layerLogger }),
+        const theContext1 = omit(
+          merge({}, commonContext, previousSubLayers),
           layersToRemove
         )
+        const layerLogger = context.rootLogger
+          .getLogger(context)
+          .getAppLogger(app.name)
+          .getLayerLogger(layer)
+        // eslint-disable-next-line
+        const theContext = Object.assign(theContext1, {
+          log: layerLogger,
+        })
         // @ts-ignore
         const layerContext = _getLayerContext(theContext, previousLayer)
         const loadedLayer = context.services[CoreNamespace.layers].loadLayer(
@@ -374,9 +384,6 @@ const features = {
         async (existingLayersP, app): Promise<FeaturesContext> => {
           const existingLayers = await existingLayersP
           type R = [LayerContext, LayerRecord]
-          const appLogger = context.rootLogger
-            .getLogger(context)
-            .getAppLogger(app.name)
           const result = await layersInOrder.reduce<Promise<R>>(
             async (accP, layer): Promise<R> => {
               const acc = await accP
@@ -391,12 +398,11 @@ const features = {
               // We have to remove existing layers that we don't want to be exposed.
               const correctContext = omit(
                 existingLayers,
-                layersToRemove
+                layersToRemove.concat('log')
               ) as LayerContext
               const layerInstance = await (Array.isArray(layer)
                 ? _loadCompositeLayer(
                     app,
-                    appLogger,
                     layer as string[],
                     correctContext,
                     previousLayer,
@@ -404,7 +410,6 @@ const features = {
                   )
                 : _loadLayer(
                     app,
-                    appLogger,
                     layer as string,
                     correctContext,
                     previousLayer
@@ -417,6 +422,9 @@ const features = {
                 existingLayers2,
                 layerInstance
               )
+              // @ts-ignore
+              // eslint-disable-next-line
+              delete newContext.log
               return [newContext, layerInstance as LayerRecord]
             },
             Promise.resolve([existingLayers, {}]) as Promise<
