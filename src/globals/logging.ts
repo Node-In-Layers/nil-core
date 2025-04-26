@@ -269,10 +269,10 @@ const _layerLogger = <TConfig extends Config = Config>(
         try {
           // @ts-ignore
           const result = func(funcLogger, ...a)
-          funcLogger[logLevel]('Feature executed')
+          funcLogger[logLevel]('Function executed')
           return result
         } catch (e) {
-          funcLogger.error('Feature failed with an exception', {
+          funcLogger.error('Function failed with an exception', {
             error: {},
           })
           throw e

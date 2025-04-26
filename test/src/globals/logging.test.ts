@@ -493,7 +493,7 @@ describe('/src/globals/logging.ts', () => {
                 )
                 assert.equal(
                   calls[1].args[0].message,
-                  'Feature failed with an exception',
+                  'Function failed with an exception',
                   'Error message mismatch'
                 )
                 assert.deepEqual(
@@ -588,7 +588,7 @@ describe('/src/globals/logging.ts', () => {
                 )
                 assert.equal(
                   calls[1].args[0].message,
-                  'Feature failed with an exception',
+                  'Function failed with an exception',
                   'Error message mismatch'
                 )
                 assert.deepEqual(
