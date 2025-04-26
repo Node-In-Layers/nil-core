@@ -5,7 +5,13 @@ import { Model, PrimaryKeyUuidProperty } from 'functional-models'
 import { features, services as layersServices } from '../../src/layers'
 import { DoNothingFetcher } from '../../src/libs'
 import { createMockFs, validConfig2, validConfig3 } from '../mocks'
-import { Config, CoreNamespace, LogFormat, LogLevelNames } from '../../src'
+import {
+  compositeLogger,
+  Config,
+  CoreNamespace,
+  LogFormat,
+  LogLevelNames,
+} from '../../src'
 
 const modelsConfig1 = () => {
   const app1Models = {
@@ -76,7 +82,7 @@ const modelsConfig1 = () => {
       layerOrder: ['services', 'features'],
       logging: {
         logFormat: LogFormat.full,
-        logLevel: LogLevelNames.silent,
+        logLevel: LogLevelNames.trace,
       },
     },
   }
@@ -152,7 +158,7 @@ const modelsConfig2 = () => {
       modelCruds: true,
       logging: {
         logFormat: LogFormat.full,
-        logLevel: LogLevelNames.silent,
+        logLevel: LogLevelNames.trace,
       },
     },
   }
@@ -226,7 +232,7 @@ const modelsConfig3 = () => {
       modelCruds: true,
       logging: {
         logFormat: LogFormat.full,
-        logLevel: LogLevelNames.silent,
+        logLevel: LogLevelNames.trace,
       },
     },
   }
@@ -236,7 +242,12 @@ const customLayer1 = () => {
   const app1 = {
     name: 'app1',
     services: {
-      create: sinon.stub().returns({}),
+      create: sinon.stub().callsFake(context => ({
+        logIt: () => {
+          const log = context.log.getFunctionLogger('logIt')
+          log.info('Test my logging')
+        },
+      })),
     },
     features: {
       create: sinon.stub().returns({}),
@@ -259,7 +270,7 @@ const customLayer1 = () => {
       layerOrder: ['services', 'features', ['entries', 'customLayer']],
       logging: {
         logFormat: LogFormat.full,
-        logLevel: LogLevelNames.silent,
+        logLevel: LogLevelNames.debug,
       },
     },
   }
@@ -298,7 +309,7 @@ const customLayer2 = () => {
       layerOrder: ['services', 'features', ['entries', 'customLayer']],
       logging: {
         logFormat: LogFormat.full,
-        logLevel: LogLevelNames.silent,
+        logLevel: LogLevelNames.trace,
       },
     },
   }
@@ -352,7 +363,7 @@ const customModelsConfig1 = () => {
       layerOrder: ['services', 'features'],
       logging: {
         logFormat: LogFormat.full,
-        logLevel: LogLevelNames.silent,
+        logLevel: LogLevelNames.trace,
       },
       modelFactory: 'customFactory',
     },
@@ -407,7 +418,7 @@ const compositeLayersConfig1 = () => {
       layerOrder: ['services', ['layerA', 'layerB', 'layerC'], 'features'],
       logging: {
         logFormat: LogFormat.full,
-        logLevel: LogLevelNames.silent,
+        logLevel: LogLevelNames.trace,
       },
     },
   }
@@ -420,21 +431,34 @@ const _setup = (config?: Config) => {
     trace: sinon.stub(),
     debug: sinon.stub(),
     error: sinon.stub(),
-    warn: sinon.stub(),
   }
-  const log = {
-    getLogger: sinon.stub().returns(logger),
+  const functionLogger = sinon.stub().returns(logger)
+  const layerLogger = {
+    ...logger,
+    getFunctionLogger: sinon.stub().returns(functionLogger),
   }
+  const appLogger = {
+    ...logger,
+    getLayerLogger: sinon.stub().returns(layerLogger),
+  }
+  const mockLogMethod = sinon.stub()
+  const rootLogger = compositeLogger([() => mockLogMethod])
+
   const services = {
     [CoreNamespace.layers]: layersServices.create(),
   }
   return {
+    _logging: {
+      rootLogger,
+      mockLogMethod,
+    },
     node: {
       fs: createMockFs(),
     },
-    log,
+    rootLogger,
     config: config || validConfig2(),
     constants: {
+      runtimeId: 'unit-test-id',
       environment: 'unit-test',
       workingDirectory: '../../',
     },
@@ -445,6 +469,31 @@ const _setup = (config?: Config) => {
 describe('/src/layers.ts', () => {
   describe('#features.create()', () => {
     describe('#loadLayers()', () => {
+      it('should produce layerLogger than when it logs, it has the appName followed by the layerName', async () => {
+        const config = customLayer1()
+        const inputs = _setup(config)
+        const instance = features.create(inputs)
+        await instance.loadLayers()
+        const actualContext =
+          inputs.config['@node-in-layers/core'].apps[0].services.create.getCall(
+            0
+          ).args[0]
+        actualContext.log.info('Test me')
+        console.log(inputs._logging.mockLogMethod.getCall(0).args[0])
+        const actual = inputs._logging.mockLogMethod.getCall(0).args[0].logger
+        const expected = 'app1:services'
+        assert.deepEqual(actual, expected)
+      })
+      it('should produce app1:services:logIt when a function logger is used in a service.', async () => {
+        const config = customLayer1()
+        const inputs = _setup(config)
+        const instance = features.create(inputs)
+        const fullContext = await instance.loadLayers()
+        fullContext.services.app1.logIt()
+        const actual = inputs._logging.mockLogMethod.getCall(0).args[0].logger
+        const expected = 'app1:services:logIt'
+        assert.deepEqual(actual, expected)
+      })
       it('should pass app1 customLayer to app2 customLayer even if app2 doesnt have a features layer', async () => {
         const config = customLayer1()
         const inputs = _setup(config)

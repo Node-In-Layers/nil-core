@@ -62,8 +62,10 @@ type ModelServices = Readonly<{
 /**
  * A function that creates
  */
-type CreateFunction<TData extends DataDescription> = (
-  data: TData | ToObjectResult<TData>
+type CreateFunction<TData extends DataDescription> = <
+  IgnoreProperties extends string = '',
+>(
+  data: Omit<TData, IgnoreProperties> | ToObjectResult<TData>
 ) => Promise<OrmModelInstance<TData>>
 
 /**
