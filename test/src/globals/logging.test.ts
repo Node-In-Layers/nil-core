@@ -416,14 +416,14 @@ describe('/src/globals/logging.ts', () => {
             )
           })
 
-          describe('#logWrapSync()', () => {
+          describe('#_logWrapSync()', () => {
             it('should pass ids through crossLayer', () => {
               const { context, logger, mockLogMethod } = _getMockLogger()
               const wrappedFunc = logger
                 .getLogger(context)
                 .getAppLogger('myApp')
                 .getLayerLogger('features')
-                .logWrapSync(
+                ._logWrapSync(
                   'myFunction',
                   (log, args: object, crossLayer: any) => {}
                 )
@@ -445,7 +445,7 @@ describe('/src/globals/logging.ts', () => {
                 .getLogger(context)
                 .getAppLogger('myApp')
                 .getLayerLogger('features')
-                .logWrapSync('myFunction', (log, args: object) => {
+                ._logWrapSync('myFunction', (log, args: object) => {
                   log.debug('My middle message', {
                     args: args as JsonObj,
                   })
@@ -466,7 +466,7 @@ describe('/src/globals/logging.ts', () => {
                 .getLogger(context)
                 .getAppLogger('myApp')
                 .getLayerLogger('features')
-                .logWrapSync('myFunction', (log, args: object) => {
+                ._logWrapSync('myFunction', (log, args: object) => {
                   throw new Error('Sync failure')
                 })
 
@@ -511,14 +511,14 @@ describe('/src/globals/logging.ts', () => {
             })
           })
 
-          describe('#logWrapAsync()', () => {
+          describe('#_logWrapAsync()', () => {
             it('should pass ids through crossLayer', async () => {
               const { context, logger, mockLogMethod } = _getMockLogger()
               const wrappedFunc = logger
                 .getLogger(context)
                 .getAppLogger('myApp')
                 .getLayerLogger('features')
-                .logWrapAsync(
+                ._logWrapAsync(
                   'myFunction',
                   (log, args: object, crossLayer: any) => Promise.resolve()
                 )
@@ -539,7 +539,7 @@ describe('/src/globals/logging.ts', () => {
                 .getLogger(context)
                 .getAppLogger('myApp')
                 .getLayerLogger('features')
-                .logWrapAsync('myFunction', async (log, args: object) => {
+                ._logWrapAsync('myFunction', async (log, args: object) => {
                   log.debug('My middle message', {
                     args: args as JsonObj,
                   })
@@ -561,7 +561,7 @@ describe('/src/globals/logging.ts', () => {
                 .getLogger(context)
                 .getAppLogger('myApp')
                 .getLayerLogger('features')
-                .logWrapAsync('myFunction', async (log, args: object) => {
+                ._logWrapAsync('myFunction', async (log, args: object) => {
                   throw new Error('Async failure')
                 })
 

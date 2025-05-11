@@ -300,16 +300,16 @@ const _layerLogger = <TConfig extends Config = Config>(
   return merge({}, theLogger, {
     getInnerLogger,
     getFunctionLogger,
-    logWrap,
+    _logWrap: logWrap,
     // eslint-disable-next-line functional/prefer-tacit
-    logWrapAsync: <T, A extends Array<any>>(
+    _logWrapAsync: <T, A extends Array<any>>(
       functionName: string,
       func: LogWrapAsync<T, A>
     ) => {
       return logWrap<T, A, LogWrapAsync<T, A>>(functionName, func)
     },
     // eslint-disable-next-line functional/prefer-tacit
-    logWrapSync: <T, A extends Array<any>>(
+    _logWrapSync: <T, A extends Array<any>>(
       functionName: string,
       func: LogWrapSync<T, A>
     ) => {

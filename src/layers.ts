@@ -388,21 +388,25 @@ const features = {
           if (funcType !== 'function') {
             return merge(acc, { [propertyName]: func })
           }
-          const newFunc = layerLogger.logWrap(propertyName, (log, ...args2) => {
-            const [argsNoCrossLayer, crossLayer] = extractCrossLayerProps(args2)
-            // Automatically create the crossLayerProps
-            // @ts-ignore
-            return func(
-              ...argsNoCrossLayer,
-              crossLayer || {
-                // create cross layer args.
-                logging: {
-                  ids: log.getIds(),
-                },
-              }
-            )
-            return func(...args2)
-          })
+          const newFunc = layerLogger._logWrap(
+            propertyName,
+            (log, ...args2) => {
+              const [argsNoCrossLayer, crossLayer] =
+                extractCrossLayerProps(args2)
+              // Automatically create the crossLayerProps
+              // @ts-ignore
+              return func(
+                ...argsNoCrossLayer,
+                crossLayer || {
+                  // create cross layer args.
+                  logging: {
+                    ids: log.getIds(),
+                  },
+                }
+              )
+              return func(...args2)
+            }
+          )
           return merge(acc, { [propertyName]: newFunc })
         },
         {}
@@ -502,6 +506,7 @@ const features = {
         const loadedLayer = context.services[CoreNamespace.layers].loadLayer(
           app,
           layer,
+          // @ts-ignore
           wrappedContext
         )
         if (!loadedLayer) {
@@ -512,6 +517,7 @@ const features = {
           ? await loadedLayer
           : loadedLayer
 
+        // @ts-ignore
         const finalLayer = Object.entries(theLayer).reduce(
           (acc, [propertyName, func]) => {
             const funcType = typeof func
@@ -519,7 +525,7 @@ const features = {
             if (funcType !== 'function') {
               return merge(acc, { [propertyName]: func })
             }
-            const newFunc = layerLogger.logWrap(
+            const newFunc = layerLogger._logWrap(
               propertyName,
               (log, ...args2) => {
                 const [argsNoCrossLayer, crossLayer] =
@@ -535,6 +541,7 @@ const features = {
                     },
                   }
                 )
+                // @ts-ignore
                 return func(...args2)
               }
             )
