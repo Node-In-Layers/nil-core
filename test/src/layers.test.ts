@@ -243,14 +243,20 @@ const customLayer1 = () => {
     name: 'app1',
     services: {
       create: sinon.stub().callsFake(context => ({
-        logIt: () => {
-          const log = context.log.getFunctionLogger('logIt')
-          log.info('Test my logging')
+        logIt: layerArgs => {
+          context.log.getInnerLogger('logIt', layerArgs).info('Test my logging')
+          return 'ok'
         },
       })),
     },
     features: {
-      create: sinon.stub().returns({}),
+      create: sinon.stub().callsFake(context => ({
+        myFeature: crossLayer => {
+          // TODO: FIXME add cross layer
+          //return context.services.app1.logIt(crossLayer)
+          return context.services.app1.logIt(crossLayer)
+        },
+      })),
     },
     customLayer: {
       create: sinon.stub().returns({ app1: 'custom' }),
@@ -452,9 +458,6 @@ const _setup = (config?: Config) => {
       rootLogger,
       mockLogMethod,
     },
-    node: {
-      fs: createMockFs(),
-    },
     rootLogger,
     config: config || validConfig2(),
     constants: {
@@ -469,6 +472,22 @@ const _setup = (config?: Config) => {
 describe('/src/layers.ts', () => {
   describe('#features.create()', () => {
     describe('#loadLayers()', () => {
+      it('should have the feature/services info when feature is run that calls service.', async () => {
+        const config = customLayer1()
+        const inputs = _setup(config)
+        const instance = features.create(inputs)
+        const context = await instance.loadLayers()
+        await context.features.app1.myFeature()
+
+        //TODO: Check and validate, we have a bunch of wrappped callls.
+        console.log(
+          JSON.stringify(
+            inputs._logging.mockLogMethod.getCalls().map(x => x.args),
+            null,
+            2
+          )
+        )
+      })
       it('should produce layerLogger than when it logs, it has the appName followed by the layerName', async () => {
         const config = customLayer1()
         const inputs = _setup(config)
@@ -479,7 +498,6 @@ describe('/src/layers.ts', () => {
             0
           ).args[0]
         actualContext.log.info('Test me')
-        console.log(inputs._logging.mockLogMethod.getCall(0).args[0])
         const actual = inputs._logging.mockLogMethod.getCall(0).args[0].logger
         const expected = 'app1:services'
         assert.deepEqual(actual, expected)

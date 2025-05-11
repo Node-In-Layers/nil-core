@@ -145,6 +145,31 @@ type CrossLayerProps<T extends object = object> = Readonly<{
   T
 
 /**
+ * A very useful way to describe all layered functions, so that crossLayer
+ * props can be passed through a system.
+ * @example
+ * ```typescript
+ * type MyService = Readonly<{
+ *   myFunc: LayerFunction<(myArg: string) => Promise<string>>
+ * }>
+ * ```
+ * This creates an object...
+ *
+ * @example
+ * ```typescript
+ * {
+ *   myFunc: (myArg: strinng, crossLayerProps) => Promise<string>
+ * }
+ * ```
+ * @interface
+ */
+type LayerFunction<T extends (...args: any[]) => any> = T extends (
+  ...args: infer Args
+) => infer ReturnType
+  ? (...args: [...Args, crossLayerProps?: CrossLayerProps]) => ReturnType
+  : never
+
+/**
  * A function argument that types inputs and outputs.
  */
 type TypedFunction<T, A extends Array<any>> = (...args: A) => T
@@ -183,6 +208,16 @@ type FunctionLogger = Logger
 type LayerLogger = Logger &
   Readonly<{
     /**
+     * A generic function for wrapping logs. Not generally intended to be used
+     * by users, but used internally.
+     * @param functionName - The name of the function
+     * @param func - The function itself
+     */
+    _logWrap: <T, A extends Array<any>>(
+      functionName: string,
+      func: LogWrapAsync<T, A> | LogWrapSync<T, A>
+    ) => (...a: A) => Promise<T> | T
+    /**
      * Creates a logging wrap around a function. This should be used on asynchronous functions.
      * Executes the function when called but will create a start and end message.
      * The first argument is the logger, followed by the normal arguments.
@@ -191,7 +226,7 @@ type LayerLogger = Logger &
      * @param functionName - The name of the function
      * @param func - The function itself
      */
-    logWrapAsync: <T, A extends Array<any>>(
+    _logWrapAsync: <T, A extends Array<any>>(
       functionName: string,
       func: LogWrapAsync<T, A>
     ) => (...a: A) => Promise<T>
@@ -204,18 +239,28 @@ type LayerLogger = Logger &
      * @param functionName - The name of the function
      * @param func - The function itself
      */
-    logWrapSync: <T, A extends Array<any>>(
+    _logWrapSync: <T, A extends Array<any>>(
       functionName: string,
       func: LogWrapSync<T, A>
     ) => (...a: A) => T
     /**
-     * Gets a function level logger. This is the primary recommended way of logging information.
+     * Gets a function level logger. This is not the recommended logger for most uses especially within layers.
+     * Use getInnerLogger.
      * A common pattern is to wrap the
      * @param name - The name of the function
      * @param crossLayerProps - Any additional crossLayerProps.
      */
     getFunctionLogger: (
       name: string,
+      crossLayerProps?: CrossLayerProps
+    ) => FunctionLogger
+    /**
+     * The primary recommended way to log within a function. Creates a logger within a function, makes sure the ids are passed along.
+     * @param functionName - The name of the function
+     * @param crossLayerProps - Any additional crossLayerProps.
+     */
+    getInnerLogger: (
+      functionName: string,
       crossLayerProps?: CrossLayerProps
     ) => FunctionLogger
   }>
@@ -253,7 +298,7 @@ type Logger = Readonly<{
    */
   trace: (
     message: string,
-    dataOrError?: Record<string, JsonAble> | ErrorObject
+    dataOrError?: Record<string, JsonAble | object> | ErrorObject
   ) => MaybePromise<void>
   /**
    * Debug statement
@@ -261,7 +306,7 @@ type Logger = Readonly<{
    */
   debug: (
     message: string,
-    dataOrError?: Record<string, JsonAble> | ErrorObject
+    dataOrError?: Record<string, JsonAble | object> | ErrorObject
   ) => MaybePromise<void>
   /**
    * An info statement
@@ -269,7 +314,7 @@ type Logger = Readonly<{
    */
   info: (
     message: string,
-    dataOrError?: Record<string, JsonAble> | ErrorObject
+    dataOrError?: Record<string, JsonAble | object> | ErrorObject
   ) => MaybePromise<void>
   /**
    * Warning statement
@@ -277,7 +322,7 @@ type Logger = Readonly<{
    */
   warn: (
     message: string,
-    dataOrError?: Record<string, JsonAble> | ErrorObject
+    dataOrError?: Record<string, JsonAble | object> | ErrorObject
   ) => MaybePromise<void>
   /**
    * An error statement.
@@ -285,7 +330,7 @@ type Logger = Readonly<{
    */
   error: (
     message: string,
-    dataOrError?: Record<string, JsonAble> | ErrorObject
+    dataOrError?: Record<string, JsonAble | object> | ErrorObject
   ) => MaybePromise<void>
   /**
    * Embeds data, so that subsequent log messages (and loggers), can log that data without having to know details about it.
@@ -774,4 +819,5 @@ export {
   TypedFunctionAsync,
   LogWrapSync,
   LogWrapAsync,
+  LayerFunction,
 }

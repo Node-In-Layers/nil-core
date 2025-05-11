@@ -3,6 +3,7 @@ import merge from 'lodash/merge.js'
 import flatten from 'lodash/flatten.js'
 import get from 'lodash/get.js'
 import omit from 'lodash/omit.js'
+import safeJson from 'safe-json-value'
 import axios from 'axios'
 import { v4 } from 'uuid'
 import { JsonAble } from 'functional-models'
@@ -32,7 +33,8 @@ import { memoizeValueSync } from '../utils.js'
 import {
   defaultGetFunctionWrapLogLevel,
   combineLoggingProps,
-  isCrossLayerLoggingProps,
+  capForLogging,
+  extractCrossLayerProps,
 } from './lib.js'
 
 const MAX_LOGGING_ATTEMPTS = 5
@@ -224,62 +226,95 @@ const _layerLogger = <TConfig extends Config = Config>(
     )
   }
 
+  const getInnerLogger = (
+    functionName: string,
+    crossLayerProps?: CrossLayerProps
+  ) => {
+    const funcLogger = theLogger.getSubLogger(functionName).applyData({
+      function: functionName,
+    })
+    return funcLogger.applyData(
+      combineLoggingProps(funcLogger, crossLayerProps)
+    )
+  }
+
+  const _isPromise = <T>(obj: any): obj is Promise<T> => {
+    return obj && obj.then
+  }
+
+  const logWrap = <
+    T,
+    A extends Array<any>,
+    TLogWrap extends LogWrapAsync<T, A> | LogWrapSync<T, A>,
+  >(
+    functionName: string,
+    func: TLogWrap
+  ) => {
+    // @ts-ignore
+    const logLevel = logLevelGetter(layerName, functionName)
+    return (...a: A) => {
+      const [argsNoCrossLayer, crossLayer] = extractCrossLayerProps(a)
+      const funcLogger = getFunctionLogger(functionName, crossLayer)
+      funcLogger[logLevel](`Executing ${layerName} function`, {
+        args: argsNoCrossLayer,
+      })
+      // eslint-disable-next-line functional/no-try-statements
+      try {
+        // @ts-ignore
+        const result = func(funcLogger, ...argsNoCrossLayer, {
+          logging: {
+            ids: funcLogger.getIds(),
+          },
+        })
+        // If a promise.
+        if (_isPromise(result)) {
+          return result
+            .then(r => {
+              funcLogger[logLevel](`Executed ${layerName} function`, {
+                result: r,
+              })
+              return r
+            })
+            .catch(e => {
+              funcLogger.error('Function failed with an exception', {
+                error: {},
+              })
+              throw e
+            })
+        }
+        // If not a promise
+        funcLogger[logLevel](`Executed ${layerName} function`, {
+          result,
+        })
+        return result
+      } catch (e) {
+        funcLogger.error('Function failed with an exception', {
+          error: {},
+        })
+        throw e
+      }
+    }
+  }
+
+  // @ts-ignore
   return merge({}, theLogger, {
-    logWrapAsync: <T, A extends Array<any>>(
+    getInnerLogger,
+    getFunctionLogger,
+    _logWrap: logWrap,
+    // eslint-disable-next-line functional/prefer-tacit
+    _logWrapAsync: <T, A extends Array<any>>(
       functionName: string,
       func: LogWrapAsync<T, A>
     ) => {
-      // @ts-ignore
-      const logLevel = logLevelGetter(layerName, functionName)
-      return (...a: A) => {
-        const crossLayer =
-          a && a.length > 0 && isCrossLayerLoggingProps(a.slice(-1)[0])
-            ? a.slice(-1)[0]
-            : undefined
-        const funcLogger = getFunctionLogger(functionName, crossLayer)
-        funcLogger[logLevel]('Executing feature')
-        // @ts-ignore
-        return func(funcLogger, ...a)
-          .then(r => {
-            funcLogger[logLevel]('Function executed')
-            return r
-          })
-          .catch(e => {
-            funcLogger.error('Function failed with an exception', {
-              error: {},
-            })
-            throw e
-          })
-      }
+      return logWrap<T, A, LogWrapAsync<T, A>>(functionName, func)
     },
-    logWrapSync: <T, A extends Array<any>>(
+    // eslint-disable-next-line functional/prefer-tacit
+    _logWrapSync: <T, A extends Array<any>>(
       functionName: string,
       func: LogWrapSync<T, A>
     ) => {
-      // @ts-ignore
-      const logLevel = logLevelGetter(layerName, functionName)
-      return (...a: A) => {
-        const crossLayer =
-          a && a.length > 0 && isCrossLayerLoggingProps(a.slice(-1)[0])
-            ? a.slice(-1)[0]
-            : undefined
-        const funcLogger = getFunctionLogger(functionName, crossLayer)
-        funcLogger[logLevel]('Executing feature')
-        // eslint-disable-next-line
-        try {
-          // @ts-ignore
-          const result = func(funcLogger, ...a)
-          funcLogger[logLevel]('Function executed')
-          return result
-        } catch (e) {
-          funcLogger.error('Function failed with an exception', {
-            error: {},
-          })
-          throw e
-        }
-      }
+      return logWrap<T, A, LogWrapSync<T, A>>(functionName, func)
     },
-    getFunctionLogger,
   })
 }
 
@@ -328,14 +363,16 @@ const _subLogger = <TConfig extends Config = Config>(
     (logLevel: LogLevelNames) =>
     (
       message: string,
-      dataOrError?: Record<string, JsonAble> | ErrorObject
+      dataOrError?: Record<string, JsonAble | object> | ErrorObject
     ): MaybePromise<void> => {
       if (_shouldIgnore(theLogLevel, logLevel)) {
         return undefined
       }
       const funcs = getLogMethods.map(x => x(context))
       const isError = _isErrorObj(dataOrError)
-      const data = merge({}, props.data, isError ? {} : dataOrError)
+      const { value: data } = safeJson(
+        merge({}, props.data, isError ? {} : dataOrError)
+      )
       const logMessage = {
         id: v4(),
         environment: context.constants.environment,
@@ -345,7 +382,7 @@ const _subLogger = <TConfig extends Config = Config>(
         ids: props.ids,
         logger: props.names.join(':'),
         ...(isError ? { error: dataOrError.error } : {}),
-        ...data,
+        ...capForLogging(data),
         ...omit(props, ['ids', 'names', 'data', 'error']),
       }
       const result = funcs.map(x => {
@@ -390,7 +427,10 @@ const _subLogger = <TConfig extends Config = Config>(
       })
     },
     applyData: (data: Record<string, JsonAble>) => {
-      return _subLogger(context, logMethods, merge({}, props, data))
+      const merged = Object.assign({}, props, data, {
+        ids: data?.ids ? data.ids : props.ids,
+      })
+      return _subLogger(context, logMethods, merged)
     },
   }
 }
