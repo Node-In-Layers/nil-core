@@ -154,6 +154,54 @@ So...
 - Sub-Layer 2 has access to Sub-Layer 1 as well as Layer 1
 - Sub-Layer 3 has access to Sub-Layers 1 and 2, as well as Layer 1
 
+# Logging
+
+Node in layers, has a built in enterprise tracing level logging system. Every function for every domain and layer is automatical wrapped with log messages. These log messages not only state which function has been called, but also the inputs and results of every function. To create comprehensive tracing, ids can be passed from layer to layer, which are then combined together as a stack which will show the execution path of an entire system.
+
+## Important: Pass CrossLayerProps between functions at the end
+
+To make this work every function is automatically passed a CrossLayerProps argument at the end of the function. The only requirement to have tracing of execution from top to bottom, is to pass this CrossLayerProps between features/services at the very end of each function call. <b>If you do not pass the CrossLayerProps between feature/service calls, ids will not flow across.</b>
+
+## Example
+
+If you wish to create additional log messages, you can use:
+
+```typescript
+const log = context.log.getInnerLog('yourFunctionName', crossLayerProps)
+log.info('A log inside')
+```
+
+```typescript
+// A service
+const create = context => {
+  // If this function is called, logs above and below are created
+  const myService = (
+    arg: string,
+    crossLayerProps?: CrossLayerProps
+  ): Promise<string> => {
+    return Promise.resolve().then(() => {
+      const log = context.log.getInnerLogger('myService', crossLayerProps)
+      log.trace('A log message within the function')
+      return `Hello ${arg}`
+    })
+  }
+  return {
+    myService,
+  }
+}
+
+// A feature
+const create = context => {
+  // If this function is called, logs above and below are created
+  const myFeature = (crossLayerProps?: CrossLayerProps): Promise<string> => {
+    return context.services.aService.myService('World', crossLayerProps)
+  }
+  return {
+    myService,
+  }
+}
+```
+
 # Models
 
 Models in Node in Layers are a first class concept. What this means, is that many, if not most, systems are built around data, and therefore the use of Models is anticipated and made as easy as possible with Node In Layers.

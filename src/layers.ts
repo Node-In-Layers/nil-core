@@ -2,7 +2,9 @@ import get from 'lodash/get.js'
 import flatten from 'lodash/flatten.js'
 import omit from 'lodash/omit.js'
 import merge from 'lodash/merge.js'
+import cloneDeep from 'lodash/cloneDeep.js'
 import { DataDescription, Model, ModelType } from 'functional-models'
+import { extractCrossLayerProps } from './globals/lib.js'
 import {
   App,
   AppLayer,
@@ -23,6 +25,17 @@ import { DoNothingFetcher, getLayersUnavailable } from './libs.js'
 import { memoizeValueSync } from './utils.js'
 import { createModelCruds } from './models/libs.js'
 import { ModelCrudsFunctions } from './models/types.js'
+
+const CONTEXT_TO_SKIP = {
+  _logging: true,
+  rootLogger: true,
+  log: true,
+  constants: true,
+  config: true,
+  models: true,
+  getModels: true,
+  cruds: true,
+}
 
 const name = CoreNamespace.layers
 
@@ -296,21 +309,109 @@ const features = {
         .getAppLogger(app.name)
         .getLayerLogger(currentLayer)
       // eslint-disable-next-line
-      const layerContext = Object.assign(layerContext1, {
-        log: layerLogger,
-      })
+      const layerContext = cloneDeep(
+        // eslint-disable-next-line functional/immutable-data
+        Object.assign(layerContext1, {
+          log: layerLogger,
+        })
+      )
+      const loggerIds = layerLogger.getIds()
+
+      const wrappedContext = Object.entries(layerContext).reduce(
+        (acc, [layerKey, layerData]) => {
+          const layerType = typeof layerData
+          if (layerKey in CONTEXT_TO_SKIP || layerType !== 'object') {
+            return merge(acc, { [layerKey]: layerData })
+          }
+          const finalLayerData = Object.entries(layerData).reduce(
+            (acc2, [domainKey, domainValue]) => {
+              const theType = typeof domainValue
+              // We are only looking for objects with functions
+              if (theType !== 'object') {
+                return merge(acc2, { [domainKey]: domainValue })
+              }
+              const domainData = Object.entries(domainValue).reduce(
+                (acc3, [propertyName, func]) => {
+                  const funcType = typeof func
+                  // We are only looking for objects with functions
+                  if (funcType !== 'function') {
+                    return merge(acc3, { [propertyName]: func })
+                  }
+
+                  const newFunc = (...args2) => {
+                    const [argsNoCrossLayer, crossLayer] =
+                      extractCrossLayerProps(args2)
+                    // Automatically create the crossLayerProps
+                    // @ts-ignore
+                    return func(
+                      ...argsNoCrossLayer,
+                      crossLayer || {
+                        logging: {
+                          ids: loggerIds,
+                        },
+                      }
+                    )
+                  }
+                  return merge(acc3, { [propertyName]: newFunc })
+                },
+                {}
+              )
+              return merge(acc2, { [domainKey]: domainData })
+            },
+            {} as any
+          )
+          return merge(acc, {
+            [layerKey]: finalLayerData,
+          })
+        },
+        {}
+      )
+
       const layer = context.services[CoreNamespace.layers].loadLayer(
         app,
         currentLayer,
-        layerContext
+        // @ts-ignore
+        //layerContext
+        wrappedContext
       )
-      if (!layer) {
+      // We need to wrap all the layer functions so that they automatically pass trace information
+      const theLayer = isPromise<GenericLayer>(layer) ? await layer : layer
+
+      if (!theLayer) {
         return {}
       }
+
+      const finalLayer = Object.entries(theLayer).reduce(
+        (acc, [propertyName, func]) => {
+          const funcType = typeof func
+          // We are only looking for objects with functions
+          if (funcType !== 'function') {
+            return merge(acc, { [propertyName]: func })
+          }
+          const newFunc = layerLogger.logWrap(propertyName, (log, ...args2) => {
+            const [argsNoCrossLayer, crossLayer] = extractCrossLayerProps(args2)
+            // Automatically create the crossLayerProps
+            // @ts-ignore
+            return func(
+              ...argsNoCrossLayer,
+              crossLayer || {
+                // create cross layer args.
+                logging: {
+                  ids: log.getIds(),
+                },
+              }
+            )
+            return func(...args2)
+          })
+          return merge(acc, { [propertyName]: newFunc })
+        },
+        {}
+      )
+
       return merge(
         {
           [currentLayer]: {
-            [app.name]: isPromise<GenericLayer>(layer) ? await layer : layer,
+            [app.name]: finalLayer,
           },
         },
         layerContext
@@ -345,20 +446,107 @@ const features = {
         })
         // @ts-ignore
         const layerContext = _getLayerContext(theContext, previousLayer)
+
+        const loggerIds = layerLogger.getIds()
+
+        const wrappedContext = Object.entries(layerContext).reduce(
+          (acc, [layerKey, layerData]) => {
+            const layerType = typeof layerData
+            if (layerKey in CONTEXT_TO_SKIP || layerType !== 'object') {
+              return merge(acc, { [layerKey]: layerData })
+            }
+            const finalLayerData = Object.entries(layerData).reduce(
+              (acc2, [domainKey, domainValue]) => {
+                const theType = typeof domainValue
+                // We are only looking for objects with functions
+                if (theType !== 'object') {
+                  return merge(acc2, { [domainKey]: domainValue })
+                }
+                const domainData = Object.entries(domainValue).reduce(
+                  (acc3, [propertyName, func]) => {
+                    const funcType = typeof func
+                    // We are only looking for objects with functions
+                    if (funcType !== 'function') {
+                      return merge(acc3, { [propertyName]: func })
+                    }
+
+                    const newFunc = (...args2) => {
+                      const [argsNoCrossLayer, crossLayer] =
+                        extractCrossLayerProps(args2)
+                      // Automatically create the crossLayerProps
+                      // @ts-ignore
+                      return func(
+                        ...argsNoCrossLayer,
+                        crossLayer || {
+                          logging: {
+                            ids: loggerIds,
+                          },
+                        }
+                      )
+                    }
+                    return merge(acc3, { [propertyName]: newFunc })
+                  },
+                  {}
+                )
+                return merge(acc2, { [domainKey]: domainData })
+              },
+              {} as any
+            )
+            return merge(acc, {
+              [layerKey]: finalLayerData,
+            })
+          },
+          {}
+        )
+
         const loadedLayer = context.services[CoreNamespace.layers].loadLayer(
           app,
           layer,
-          layerContext
+          wrappedContext
         )
         if (!loadedLayer) {
           return previousSubLayers
         }
+
+        const theLayer = isPromise(loadedLayer)
+          ? await loadedLayer
+          : loadedLayer
+
+        const finalLayer = Object.entries(theLayer).reduce(
+          (acc, [propertyName, func]) => {
+            const funcType = typeof func
+            // We are only looking for objects with functions
+            if (funcType !== 'function') {
+              return merge(acc, { [propertyName]: func })
+            }
+            const newFunc = layerLogger.logWrap(
+              propertyName,
+              (log, ...args2) => {
+                const [argsNoCrossLayer, crossLayer] =
+                  extractCrossLayerProps(args2)
+                // Automatically create the crossLayerProps
+                // @ts-ignore
+                return func(
+                  ...argsNoCrossLayer,
+                  crossLayer || {
+                    // create cross layer args.
+                    logging: {
+                      ids: log.getIds(),
+                    },
+                  }
+                )
+                return func(...args2)
+              }
+            )
+            return merge(acc, { [propertyName]: newFunc })
+          },
+          {}
+        )
+
         // We have to create a NEW context to be passed along each time. If we put acc as the first arg, all the other sub-layers will magically get things they can't have.
         const result = merge({}, previousSubLayers, {
           [layer]: {
-            [app.name]: isPromise(loadedLayer)
-              ? await loadedLayer
-              : loadedLayer,
+            [app.name]: finalLayer,
           },
         })
         return result

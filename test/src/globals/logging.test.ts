@@ -483,7 +483,7 @@ describe('/src/globals/logging.ts', () => {
                 )
                 assert.equal(
                   calls[0].args[0].message,
-                  'Executing feature',
+                  'Executing features function',
                   'First message mismatch'
                 )
                 assert.equal(
@@ -578,7 +578,7 @@ describe('/src/globals/logging.ts', () => {
                 )
                 assert.equal(
                   calls[0].args[0].message,
-                  'Executing feature',
+                  'Executing features function',
                   'First message mismatch'
                 )
                 assert.equal(
