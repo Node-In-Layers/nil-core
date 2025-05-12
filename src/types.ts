@@ -1,4 +1,3 @@
-/* eslint-disable no-magic-numbers */
 import {
   DataDescription,
   ModelFactory,
@@ -51,8 +50,11 @@ enum LogLevel {
   TRACE = 0,
   DEBUG = 1,
   INFO = 2,
+  // eslint-disable-next-line no-magic-numbers
   WARN = 3,
+  // eslint-disable-next-line no-magic-numbers
   ERROR = 4,
+  // eslint-disable-next-line no-magic-numbers
   SILENT = 5,
 }
 /* eslint-enable no-magic-numbers */
@@ -567,6 +569,35 @@ type CoreConfig = Readonly<{
       layerName: string,
       functionName?: string
     ) => LogLevelNames
+    /**
+     * Optional structure for NOT wrapping log messages around a layers function.
+     * domain -> layer -> function
+     *
+     * You can also ignore ALL functions in a domain's layer.
+     *
+     * @example
+     * ```javascript
+     * {
+     *   ignoreLayerFunctions: {
+     *     '@node-in-layer/rest-api/express': {
+     *       // We will ignore ALL of the express layer
+     *       express: true,
+     *
+     *       // Ignore specific functions.
+     *       features: {
+     *         modelCrudsRouter: true,
+     *         modelCrudsController: true,
+     *       }
+     *     }
+     *   }
+     * }
+     * ```
+     * @interface
+     */
+    ignoreLayerFunctions?: Record<
+      string,
+      Record<string, Record<string, boolean> | boolean>
+    >
   }
   /**
    * The layers to be loaded, in their order.
