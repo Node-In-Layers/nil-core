@@ -620,7 +620,7 @@ describe('/src/globals/logging.ts', () => {
               assert.deepEqual(actual, expected)
             })
 
-            it('should create a functionCall id automatically', () => {
+            it('should create a functionCallId automatically', () => {
               const { context, logger, mockLogMethod } = _getMockLogger()
               const log = logger
                 .getLogger(context)
@@ -630,7 +630,7 @@ describe('/src/globals/logging.ts', () => {
               log.info('test')
               const actual = mockLogMethod
                 .getCall(0)
-                .args[0].ids.find(x => 'functionCall' in x)
+                .args[0].ids.find(x => 'functionCallId' in x)
               assert.isOk(actual)
             })
 

@@ -217,7 +217,7 @@ const _layerLogger = <TConfig extends Config = Config>(
     crossLayerProps?: CrossLayerProps
   ) => {
     const funcLogger = theLogger
-      .getIdLogger(functionName, 'functionCall', v4())
+      .getIdLogger(functionName, 'functionCallId', v4())
       .applyData({
         function: functionName,
       })
