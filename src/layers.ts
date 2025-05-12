@@ -560,7 +560,7 @@ const features = {
           : loadedLayer
 
         // Are we going to ignore any log wrapping for this domain's whole layer??
-        const layerLevelKey = `${app.name}.${currentLayer}`
+        const layerLevelKey = `${app.name}.${layer}`
         const shouldIgnore = get(ignoreLayerFunctions, layerLevelKey)
 
         const finalLayer = shouldIgnore
@@ -570,6 +570,11 @@ const features = {
               const funcType = typeof func
               // We are only looking for objects with functions
               if (funcType !== 'function') {
+                return merge(acc, { [propertyName]: func })
+              }
+              // Are we going to ignore this function from wrapping
+              const functionLevelKey = `${app.name}.${layer}.${propertyName}`
+              if (get(ignoreLayerFunctions, functionLevelKey)) {
                 return merge(acc, { [propertyName]: func })
               }
               const newFunc = layerLogger._logWrap(
