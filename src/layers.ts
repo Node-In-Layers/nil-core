@@ -316,6 +316,9 @@ const features = {
         })
       )
       const loggerIds = layerLogger.getIds()
+      const ignoreLayerFunctions =
+        commonContext.config[CoreNamespace.root].logging
+          ?.ignoreLayerFunctions || {}
 
       const wrappedContext = Object.entries(layerContext).reduce(
         (acc, [layerKey, layerData]) => {
@@ -330,11 +333,24 @@ const features = {
               if (theType !== 'object') {
                 return merge(acc2, { [domainKey]: domainValue })
               }
+
+              // Are we going to ignore any log wrapping for this domain's whole layer??
+              const layerLevelKey = `${domainKey}.${layerKey}`
+              if (get(ignoreLayerFunctions, layerLevelKey)) {
+                return merge(acc2, { [domainKey]: domainValue })
+              }
+
               const domainData = Object.entries(domainValue).reduce(
                 (acc3, [propertyName, func]) => {
                   const funcType = typeof func
                   // We are only looking for objects with functions
                   if (funcType !== 'function') {
+                    return merge(acc3, { [propertyName]: func })
+                  }
+
+                  // Are we going to ignore this function from wrapping
+                  const functionLevelKey = `${domainKey}.${layerKey}.${propertyName}`
+                  if (get(ignoreLayerFunctions, functionLevelKey)) {
                     return merge(acc3, { [propertyName]: func })
                   }
 
@@ -381,36 +397,46 @@ const features = {
         return {}
       }
 
-      const finalLayer = Object.entries(theLayer).reduce(
-        (acc, [propertyName, func]) => {
-          const funcType = typeof func
-          // We are only looking for objects with functions
-          if (funcType !== 'function') {
-            return merge(acc, { [propertyName]: func })
-          }
-          const newFunc = layerLogger._logWrap(
-            propertyName,
-            (log, ...args2) => {
-              const [argsNoCrossLayer, crossLayer] =
-                extractCrossLayerProps(args2)
-              // Automatically create the crossLayerProps
-              // @ts-ignore
-              return func(
-                ...argsNoCrossLayer,
-                crossLayer || {
-                  // create cross layer args.
-                  logging: {
-                    ids: log.getIds(),
-                  },
-                }
-              )
-              return func(...args2)
+      // Are we going to ignore any log wrapping for this domain's whole layer??
+      const layerLevelKey = `${app.name}.${currentLayer}`
+      const shouldIgnore = get(ignoreLayerFunctions, layerLevelKey)
+
+      const finalLayer = shouldIgnore
+        ? theLayer
+        : Object.entries(theLayer).reduce((acc, [propertyName, func]) => {
+            const funcType = typeof func
+            // We are only looking for objects with functions
+            if (funcType !== 'function') {
+              return merge(acc, { [propertyName]: func })
             }
-          )
-          return merge(acc, { [propertyName]: newFunc })
-        },
-        {}
-      )
+
+            // Are we going to ignore this function from wrapping
+            const functionLevelKey = `${app.name}.${currentLayer}.${propertyName}`
+            if (get(ignoreLayerFunctions, functionLevelKey)) {
+              return merge(acc, { [propertyName]: func })
+            }
+
+            const newFunc = layerLogger._logWrap(
+              propertyName,
+              (log, ...args2) => {
+                const [argsNoCrossLayer, crossLayer] =
+                  extractCrossLayerProps(args2)
+                // Automatically create the crossLayerProps
+                // @ts-ignore
+                return func(
+                  ...argsNoCrossLayer,
+                  crossLayer || {
+                    // create cross layer args.
+                    logging: {
+                      ids: log.getIds(),
+                    },
+                  }
+                )
+                return func(...args2)
+              }
+            )
+            return merge(acc, { [propertyName]: newFunc })
+          }, {})
 
       return merge(
         {
@@ -452,6 +478,9 @@ const features = {
         const layerContext = _getLayerContext(theContext, previousLayer)
 
         const loggerIds = layerLogger.getIds()
+        const ignoreLayerFunctions =
+          commonContext.config[CoreNamespace.root].logging
+            ?.ignoreLayerFunctions || {}
 
         const wrappedContext = Object.entries(layerContext).reduce(
           (acc, [layerKey, layerData]) => {
@@ -466,11 +495,24 @@ const features = {
                 if (theType !== 'object') {
                   return merge(acc2, { [domainKey]: domainValue })
                 }
+
+                // Are we going to ignore any log wrapping for this domain's whole layer??
+                const layerLevelKey = `${domainKey}.${layerKey}`
+                if (get(ignoreLayerFunctions, layerLevelKey)) {
+                  return merge(acc2, { [domainKey]: domainValue })
+                }
+
                 const domainData = Object.entries(domainValue).reduce(
                   (acc3, [propertyName, func]) => {
                     const funcType = typeof func
                     // We are only looking for objects with functions
                     if (funcType !== 'function') {
+                      return merge(acc3, { [propertyName]: func })
+                    }
+
+                    // Are we going to ignore this function from wrapping
+                    const functionLevelKey = `${domainKey}.${layerKey}.${propertyName}`
+                    if (get(ignoreLayerFunctions, functionLevelKey)) {
                       return merge(acc3, { [propertyName]: func })
                     }
 
@@ -517,38 +559,41 @@ const features = {
           ? await loadedLayer
           : loadedLayer
 
+        // Are we going to ignore any log wrapping for this domain's whole layer??
+        const layerLevelKey = `${app.name}.${currentLayer}`
+        const shouldIgnore = get(ignoreLayerFunctions, layerLevelKey)
+
         // @ts-ignore
-        const finalLayer = Object.entries(theLayer).reduce(
-          (acc, [propertyName, func]) => {
-            const funcType = typeof func
-            // We are only looking for objects with functions
-            if (funcType !== 'function') {
-              return merge(acc, { [propertyName]: func })
-            }
-            const newFunc = layerLogger._logWrap(
-              propertyName,
-              (log, ...args2) => {
-                const [argsNoCrossLayer, crossLayer] =
-                  extractCrossLayerProps(args2)
-                // Automatically create the crossLayerProps
-                // @ts-ignore
-                return func(
-                  ...argsNoCrossLayer,
-                  crossLayer || {
-                    // create cross layer args.
-                    logging: {
-                      ids: log.getIds(),
-                    },
-                  }
-                )
-                // @ts-ignore
-                return func(...args2)
+        const finalLayer = shouldIgnore
+          ? theLayer
+          : Object.entries(theLayer).reduce((acc, [propertyName, func]) => {
+              const funcType = typeof func
+              // We are only looking for objects with functions
+              if (funcType !== 'function') {
+                return merge(acc, { [propertyName]: func })
               }
-            )
-            return merge(acc, { [propertyName]: newFunc })
-          },
-          {}
-        )
+              const newFunc = layerLogger._logWrap(
+                propertyName,
+                (log, ...args2) => {
+                  const [argsNoCrossLayer, crossLayer] =
+                    extractCrossLayerProps(args2)
+                  // Automatically create the crossLayerProps
+                  // @ts-ignore
+                  return func(
+                    ...argsNoCrossLayer,
+                    crossLayer || {
+                      // create cross layer args.
+                      logging: {
+                        ids: log.getIds(),
+                      },
+                    }
+                  )
+                  // @ts-ignore
+                  return func(...args2)
+                }
+              )
+              return merge(acc, { [propertyName]: newFunc })
+            }, {})
 
         // We have to create a NEW context to be passed along each time. If we put acc as the first arg, all the other sub-layers will magically get things they can't have.
         const result = merge({}, previousSubLayers, {
