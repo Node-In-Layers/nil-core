@@ -565,8 +565,8 @@ const features = {
 
         const finalLayer = shouldIgnore
           ? theLayer
-          // @ts-ignore
-          : Object.entries(theLayer).reduce((acc, [propertyName, func]) => {
+          : // @ts-ignore
+            Object.entries(theLayer).reduce((acc, [propertyName, func]) => {
               const funcType = typeof func
               // We are only looking for objects with functions
               if (funcType !== 'function') {
