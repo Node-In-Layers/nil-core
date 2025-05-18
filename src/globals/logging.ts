@@ -1,4 +1,3 @@
-import { isPromise } from 'node:util/types'
 import merge from 'lodash/merge.js'
 import flatten from 'lodash/flatten.js'
 import get from 'lodash/get.js'
@@ -38,6 +37,10 @@ import {
 } from './lib.js'
 
 const MAX_LOGGING_ATTEMPTS = 5
+
+const _isPromise = <T>(obj: any): obj is Promise<T> => {
+  return obj && obj.then
+}
 
 const _combineIds = (id: readonly LogId[]) => {
   return id
@@ -217,7 +220,7 @@ const _layerLogger = <TConfig extends Config = Config>(
     crossLayerProps?: CrossLayerProps
   ) => {
     const funcLogger = theLogger
-      .getIdLogger(functionName, 'functionCall', v4())
+      .getIdLogger(functionName, 'functionCallId', v4())
       .applyData({
         function: functionName,
       })
@@ -236,10 +239,6 @@ const _layerLogger = <TConfig extends Config = Config>(
     return funcLogger.applyData(
       combineLoggingProps(funcLogger, crossLayerProps)
     )
-  }
-
-  const _isPromise = <T>(obj: any): obj is Promise<T> => {
-    return obj && obj.then
   }
 
   const logWrap = <
@@ -388,7 +387,7 @@ const _subLogger = <TConfig extends Config = Config>(
       const result = funcs.map(x => {
         return x(logMessage)
       })
-      const promises = result.filter(isPromise)
+      const promises = result.filter(_isPromise)
       if (promises.length > 0) {
         return Promise.resolve().then(async () => {
           await Promise.all(promises)
