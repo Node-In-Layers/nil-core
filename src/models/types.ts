@@ -42,6 +42,14 @@ type ModelCrudsFunctions<
    * The search function
    */
   search: SearchFunction<TData>
+  /**
+   * The bulk insert function
+   */
+  bulkInsert: BulkInsertFunction<TData>
+  /**
+   * The bulk delete function
+   */
+  bulkDelete: BulkDeleteFunction
 }>
 
 /**
@@ -94,6 +102,18 @@ type DeleteFunction = (primaryKey: PrimaryKeyType) => Promise<void>
 type SearchFunction<TData extends DataDescription> = (
   ormSearch: OrmSearch
 ) => Promise<OrmSearchResult<TData>>
+
+/**
+ * A function that bulk inserts
+ */
+type BulkInsertFunction<TData extends DataDescription> = (
+  data: TData[]
+) => Promise<void>
+
+/**
+ * A function that bulk deletes
+ */
+type BulkDeleteFunction = (primaryKeys: PrimaryKeyType[]) => Promise<void>
 
 /**
  * An object that provides overrides for default behavior.

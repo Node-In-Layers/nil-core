@@ -61,6 +61,16 @@ const createModelCruds = <TData extends DataDescription>(
     return _getModel().search(ormSearch)
   }
 
+  const bulkInsertFunction = async (data: TData[]): Promise<void> => {
+    await _getModel().bulkInsert(data)
+  }
+
+  const bulkDeleteFunction = async (
+    primaryKeys: PrimaryKeyType[]
+  ): Promise<void> => {
+    await _getModel().bulkDelete(primaryKeys)
+  }
+
   return {
     getModel: _getModel,
     create: createFunction,
@@ -68,6 +78,8 @@ const createModelCruds = <TData extends DataDescription>(
     update: updateFunction,
     delete: deleteFunction,
     search: searchFunction,
+    bulkInsert: bulkInsertFunction,
+    bulkDelete: bulkDeleteFunction,
     // If we have overrides this will overwrite our function
     ...(options && options.overrides ? options.overrides : {}),
   }
