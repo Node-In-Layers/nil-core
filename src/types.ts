@@ -579,7 +579,7 @@ type CoreConfig = Readonly<{
      * ```javascript
      * {
      *   ignoreLayerFunctions: {
-     *     '@node-in-layer/rest-api/express': {
+     *     '@node-in-layers/rest-api/express': {
      *       // We will ignore ALL of the express layer
      *       express: true,
      *
@@ -588,7 +588,9 @@ type CoreConfig = Readonly<{
      *         modelCrudsRouter: true,
      *         modelCrudsController: true,
      *       }
-     *     }
+     *     },
+     *     // This will ignore the entire layer.
+     *     'myDomain.layer': true,
      *   }
      * }
      * ```
@@ -596,7 +598,7 @@ type CoreConfig = Readonly<{
      */
     ignoreLayerFunctions?: Record<
       string,
-      Record<string, Record<string, boolean> | boolean>
+      boolean | Record<string, Record<string, boolean> | boolean>
     >
   }
   /**
