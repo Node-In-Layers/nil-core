@@ -8,6 +8,7 @@ import {
   LayerDescription,
   LogLevel,
   LogLevelNames,
+  ErrorObject,
 } from './types.js'
 
 const featurePassThrough = wrap
@@ -165,7 +166,146 @@ const DoNothingFetcher: ModelInstanceFetcher = (
   primarykey: PrimaryKeyType
 ): Promise<PrimaryKeyType> => Promise.resolve(primarykey)
 
+/**
+ * Converts an Error object to a standard ErrorObject structure.
+ * This is an internal helper used by createErrorObject.
+ *
+ * @param error - The error to convert
+ * @param code - The error code to use
+ * @param message - The error message to use
+ * @returns An ErrorObject representation of the error
+ */
+const _convertErrorToCause = (
+  error: Error,
+  code: string,
+  message: string
+): ErrorObject => {
+  // Build the error details object
+  const errorObj = {
+    error: {
+      code,
+      message: message || error.message,
+    },
+  }
+
+  // Add details from the error
+  if (error.message) {
+    return merge({}, errorObj, {
+      error: {
+        details: error.message,
+      },
+    })
+  }
+
+  // Handle nested cause if available
+  if (error.cause) {
+    const causeObj = _convertErrorToCause(
+      error.cause as Error,
+      'NestedError',
+      (error.cause as Error).message
+    )
+
+    return merge({}, errorObj, {
+      error: {
+        cause: causeObj.error,
+      },
+    })
+  }
+  // Return the final error object
+  return errorObj
+}
+
+/**
+ * Creates a standardized error object for consistent error handling across the application.
+ * This function handles all the logic for converting different error types to the standard format.
+ *
+ * @param code - A unique string code for the error
+ * @param message - A user-friendly error message
+ * @param error - Optional error object or details (can be any type - will be properly handled)
+ * @returns A standardized error object conforming to the ErrorObject type
+ */
+const createErrorObject = (
+  code: string,
+  message: string,
+  error?: unknown
+): ErrorObject => {
+  // Create base error details
+  const baseErrorObj = {
+    error: {
+      code,
+      message,
+    },
+  }
+
+  // Return early if no additional error information
+  if (!error) {
+    return baseErrorObj
+  }
+
+  // Handle different types of error input
+  if (error instanceof Error) {
+    const errorDetails = {
+      error: {
+        details: error.message,
+        errorDetails: `${error}`,
+      },
+    }
+    // Add cause if available
+    if (error.cause) {
+      const causeObj = _convertErrorToCause(
+        error.cause as Error,
+        'CauseError',
+        (error.cause as Error).message
+      )
+
+      return merge({}, baseErrorObj, errorDetails, {
+        error: {
+          cause: causeObj.error,
+        },
+      })
+    }
+
+    return merge({}, baseErrorObj, errorDetails)
+  }
+
+  if (typeof error === 'string') {
+    return merge({}, baseErrorObj, {
+      error: {
+        details: error,
+      },
+    })
+  }
+  // For Record<string, JsonAble> or any object that can be serialized
+  if (error !== null && typeof error === 'object' && !Array.isArray(error)) {
+    // eslint-disable-next-line functional/no-try-statements
+    try {
+      // Test if it can be serialized
+      JSON.stringify(error)
+      return merge({}, baseErrorObj, {
+        error: {
+          data: error,
+        },
+      })
+    } catch {
+      // If not serializable, convert to string
+      return merge({}, baseErrorObj, {
+        error: {
+          details: String(error),
+        },
+      })
+    }
+  }
+
+  // Handle arrays or any other types
+  return merge({}, baseErrorObj, {
+    error: {
+      details: String(error),
+    },
+  })
+}
+
 export {
+  createErrorObject,
   featurePassThrough,
   getLogLevelName,
   validateConfig,

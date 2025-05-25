@@ -44,6 +44,7 @@ const memoizeValue = <T, A extends Array<any>>(
       if (!called) {
         value = await method(...args)
         // Read above about this.
+        // eslint-disable-next-line require-atomic-updates
         called = true
       }
 

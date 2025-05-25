@@ -6,7 +6,7 @@ import safeJson from 'safe-json-value'
 import axios from 'axios'
 import { v4 } from 'uuid'
 import { JsonAble } from 'functional-models'
-import { getLogLevelNumber } from '../libs.js'
+import { createErrorObject, getLogLevelNumber } from '../libs.js'
 import {
   CommonContext,
   Config,
@@ -275,9 +275,14 @@ const _layerLogger = <TConfig extends Config = Config>(
               return r
             })
             .catch(e => {
-              funcLogger.error('Function failed with an exception', {
-                error: {},
-              })
+              funcLogger.error(
+                'Function failed with an exception',
+                createErrorObject(
+                  'INTERNAL_ERROR',
+                  `Layer function ${layerName}:${functionName}`,
+                  e
+                )
+              )
               throw e
             })
         }
@@ -287,9 +292,14 @@ const _layerLogger = <TConfig extends Config = Config>(
         })
         return result
       } catch (e) {
-        funcLogger.error('Function failed with an exception', {
-          error: {},
-        })
+        funcLogger.error(
+          'Function failed with an exception',
+          createErrorObject(
+            'INTERNAL_ERROR',
+            `Layer function ${layerName}:${functionName}`,
+            e
+          )
+        )
         throw e
       }
     }
