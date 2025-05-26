@@ -467,7 +467,8 @@ const features = {
           layersToRemove
         )
         const layerLogger = context.rootLogger
-          .getLogger(context)
+          // @ts-ignore
+          .getLogger(theContext1)
           .getAppLogger(app.name)
           .getLayerLogger(layer)
         // eslint-disable-next-line
