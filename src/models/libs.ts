@@ -62,7 +62,8 @@ const createModelCruds = <TData extends DataDescription>(
   }
 
   const bulkInsertFunction = async (data: TData[]): Promise<void> => {
-    await _getModel().bulkInsert(data)
+    const model = _getModel()
+    await model.bulkInsert(data.map(x=>model.create(x)))
   }
 
   const bulkDeleteFunction = async (
