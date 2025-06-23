@@ -107,13 +107,15 @@ type SearchFunction<TData extends DataDescription> = (
  * A function that bulk inserts
  */
 type BulkInsertFunction<TData extends DataDescription> = (
-  data: TData[]
+  data: readonly TData[]
 ) => Promise<void>
 
 /**
  * A function that bulk deletes
  */
-type BulkDeleteFunction = (primaryKeys: PrimaryKeyType[]) => Promise<void>
+type BulkDeleteFunction = (
+  primaryKeys: readonly PrimaryKeyType[]
+) => Promise<void>
 
 /**
  * An object that provides overrides for default behavior.
