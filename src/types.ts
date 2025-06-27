@@ -810,7 +810,10 @@ type System<
   features: TFeatures
 }
 
+type Response<R extends object = object> = R | ErrorObject
+
 export {
+  Response,
   Config,
   App,
   LogFormat,
