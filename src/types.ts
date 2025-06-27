@@ -810,7 +810,7 @@ type System<
   features: TFeatures
 }
 
-type Response<R extends object | void = object> = R | ErrorObject
+type Response<R extends JsonAble | void = void> = R | ErrorObject
 
 export {
   Response,
