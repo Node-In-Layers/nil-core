@@ -810,7 +810,7 @@ type System<
   features: TFeatures
 }
 
-type Response<R> = R | ErrorObject
+type Response<R> = R | Partial<ErrorObject>
 
 export {
   Response,
