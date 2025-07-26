@@ -1,7 +1,7 @@
 {
   "name": "@node-in-layers/core",
   "type": "module",
-  "version": "1.6.7",
+  "version": "1.6.8",
   "description": "The core library for the Node In Layers rapid web development framework.",
   "main": "index.js",
   "scripts": {
@@ -12,7 +12,7 @@
     "eslint": "eslint .",
     "prettier": "prettier --write .",
     "prettier:check": "prettier -c .",
-    "test": "export TS_NODE_PROJECT='./tsconfig.test.json' && mocha -r tsx ./test/src/*.test.ts ./test/src/**/*.test.ts ./test/src/**/**/*.test.ts",
+    "test": "export TS_NODE_TRANSPILE_ONLY=true && export TS_NODE_PROJECT='./tsconfig.test.json' && mocha -r ts-node/register 'test/**/*.test.ts'",
     "test:coverage": "c8 --all --reporter cobertura --reporter text --reporter lcov --reporter html npm run test",
     "test:features": "./node_modules/.bin/cucumber-js -p default"
   },

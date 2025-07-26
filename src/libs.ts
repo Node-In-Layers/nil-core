@@ -304,6 +304,10 @@ const createErrorObject = (
   })
 }
 
+const isErrorObject = (value: unknown): value is ErrorObject => {
+  return typeof value === 'object' && value !== null && 'error' in value
+}
+
 export {
   createErrorObject,
   featurePassThrough,
@@ -314,4 +318,5 @@ export {
   getNamespace,
   DoNothingFetcher,
   getLogLevelNumber,
+  isErrorObject,
 }
