@@ -6,7 +6,7 @@ import safeJson from 'safe-json-value'
 import axios from 'axios'
 import { v4 } from 'uuid'
 import { JsonAble } from 'functional-models'
-import { createErrorObject, getLogLevelNumber } from '../libs.js'
+import { createErrorObject, getLogLevelNumber, isErrorObject } from '../libs.js'
 import {
   CommonContext,
   Config,
@@ -27,6 +27,7 @@ import {
   LogWrapAsync,
   LogWrapSync,
   MaybePromise,
+  LogInstanceOptions,
 } from '../types.js'
 import { memoizeValueSync } from '../utils.js'
 import {
@@ -190,10 +191,6 @@ const _getLogMethodFromFormat = (
     default:
       throw new Error(`LogFormat ${logFormat} is not supported`)
   }
-}
-
-const _isErrorObj = (obj: any): obj is ErrorObject => {
-  return Boolean(get(obj, 'error'))
 }
 
 const _layerLogger = <TConfig extends Config = Config>(
@@ -372,16 +369,20 @@ const _subLogger = <TConfig extends Config = Config>(
     (logLevel: LogLevelNames) =>
     (
       message: string,
-      dataOrError?: Record<string, JsonAble | object> | ErrorObject
+      dataOrError?: Record<string, JsonAble | object> | ErrorObject,
+      options?: LogInstanceOptions
     ): MaybePromise<void> => {
       if (_shouldIgnore(theLogLevel, logLevel)) {
         return undefined
       }
       const funcs = getLogMethods.map(x => x(context))
-      const isError = _isErrorObj(dataOrError)
+      const isError = isErrorObject(dataOrError)
       const { value: data } = safeJson(
         merge({}, props.data, isError ? {} : dataOrError)
       )
+      const theData = options?.ignoreSizeLimit
+        ? data || {}
+        : capForLogging(data)
       const logMessage = {
         id: v4(),
         environment: context.constants.environment,
@@ -391,7 +392,7 @@ const _subLogger = <TConfig extends Config = Config>(
         ids: props.ids,
         logger: props.names.join(':'),
         ...(isError ? { error: dataOrError.error } : {}),
-        ...capForLogging(data),
+        ...theData,
         ...omit(props, ['ids', 'names', 'data', 'error']),
       }
       const result = funcs.map(x => {

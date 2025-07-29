@@ -289,6 +289,13 @@ enum CommonLayerName {
 }
 
 /**
+ * Options for a specific instance of logging.
+ */
+type LogInstanceOptions = Readonly<{
+  ignoreSizeLimit?: boolean
+}>
+
+/**
  * A log object
  * @interface
  */
@@ -300,7 +307,8 @@ type Logger = Readonly<{
    */
   trace: (
     message: string,
-    dataOrError?: Record<string, JsonAble | object> | ErrorObject
+    dataOrError?: Record<string, JsonAble | object> | ErrorObject,
+    options?: LogInstanceOptions
   ) => MaybePromise<void>
   /**
    * Debug statement
@@ -308,7 +316,8 @@ type Logger = Readonly<{
    */
   debug: (
     message: string,
-    dataOrError?: Record<string, JsonAble | object> | ErrorObject
+    dataOrError?: Record<string, JsonAble | object> | ErrorObject,
+    options?: LogInstanceOptions
   ) => MaybePromise<void>
   /**
    * An info statement
@@ -316,7 +325,8 @@ type Logger = Readonly<{
    */
   info: (
     message: string,
-    dataOrError?: Record<string, JsonAble | object> | ErrorObject
+    dataOrError?: Record<string, JsonAble | object> | ErrorObject,
+    options?: LogInstanceOptions
   ) => MaybePromise<void>
   /**
    * Warning statement
@@ -324,7 +334,8 @@ type Logger = Readonly<{
    */
   warn: (
     message: string,
-    dataOrError?: Record<string, JsonAble | object> | ErrorObject
+    dataOrError?: Record<string, JsonAble | object> | ErrorObject,
+    options?: LogInstanceOptions
   ) => MaybePromise<void>
   /**
    * An error statement.
@@ -332,7 +343,8 @@ type Logger = Readonly<{
    */
   error: (
     message: string,
-    dataOrError?: Record<string, JsonAble | object> | ErrorObject
+    dataOrError?: Record<string, JsonAble | object> | ErrorObject,
+    options?: LogInstanceOptions
   ) => MaybePromise<void>
   /**
    * Embeds data, so that subsequent log messages (and loggers), can log that data without having to know details about it.
@@ -523,7 +535,17 @@ type LayerServicesLayer = {
 
 type LayerDescription = string | readonly string[]
 
-type ModelToModelFactoryNamespace = Record<string, string | [string, any[]]>
+/**
+ * String model name, to either service name, or namespace, db key, and optional additional args.
+ */
+type ModelToModelFactoryNamespace = Record<
+  string,
+  string | [string, string] | [string, string, any[]]
+>
+
+/**
+ * String namespace to namespace factory.
+ */
 type NamespaceToFactory = Record<string, ModelToModelFactoryNamespace>
 
 /**
@@ -543,6 +565,11 @@ type CoreConfig = Readonly<{
      * The format of log messages. If multiple are included, then multiple logging approaches will be used.
      */
     logFormat: LogFormat | readonly LogFormat[]
+    /**
+     * The maximum number of characters a log can be. NOTE: This is the count of any optional data properties,
+     * and does NOT include any core fields. Defaults to 50,000
+     */
+    maxLogSizeInCharacters?: number
     /**
      * When logFormat is tcp, these options are used to configure AXIOS.
      */
@@ -856,4 +883,5 @@ export {
   LogWrapSync,
   LogWrapAsync,
   LayerFunction,
+  LogInstanceOptions,
 }

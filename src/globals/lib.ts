@@ -3,7 +3,7 @@ import get from 'lodash/get.js'
 import omit from 'lodash/omit.js'
 import { LogLevelNames, CrossLayerProps, Logger, LogId } from '../types.js'
 
-const MAX_LOG_CHARACTERS = 20000
+const MAX_LOG_CHARACTERS = 50000
 
 const defaultGetFunctionWrapLogLevel = (layerName: string): LogLevelNames => {
   switch (layerName) {
