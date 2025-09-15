@@ -1,5 +1,6 @@
 import get from 'lodash/get.js'
 import merge from 'lodash/merge.js'
+import omit from 'lodash/omit.js'
 import { ModelInstanceFetcher, PrimaryKeyType } from 'functional-models'
 import { wrap } from './utils.js'
 import {
@@ -9,6 +10,8 @@ import {
   LogLevel,
   LogLevelNames,
   ErrorObject,
+  CrossLayerProps,
+  LogId,
 } from './types.js'
 
 const featurePassThrough = wrap
@@ -308,6 +311,48 @@ const isErrorObject = (value: unknown): value is ErrorObject => {
   return typeof value === 'object' && value !== null && 'error' in value
 }
 
+const combineCrossLayerProps = (
+  crossLayerPropsA: CrossLayerProps,
+  crossLayerPropsB: CrossLayerProps
+) => {
+  const loggingData = crossLayerPropsA.logging || {}
+  const ids = loggingData.ids || []
+  const currentIds = crossLayerPropsB.logging?.ids || []
+
+  //start with logger ids
+  const existingIds = ids.reduce(
+    (acc, obj) => {
+      return Object.entries(obj).reduce((accKeys, [key, value]) => {
+        return merge(accKeys, { [`${key}:${value}`]: key })
+      }, acc)
+    },
+    {} as Record<string, string>
+  )
+
+  //start with cross layer ids
+  const unique = currentIds.reduce(
+    (acc, passedIn) => {
+      const keys = Object.entries(passedIn)
+      const newKeys = keys
+        .filter(([key, value]) => !(`${key}:${value}` in existingIds))
+        .map(([key, value]) => ({ [key]: value }))
+      if (newKeys.length > 0) {
+        return acc.concat(newKeys)
+      }
+      return acc
+    },
+    [] as readonly LogId[]
+  )
+
+  const finalIds = ids.concat(unique)
+  return merge(
+    {
+      ids: finalIds,
+    },
+    omit(loggingData, 'ids')
+  )
+}
+
 export {
   createErrorObject,
   featurePassThrough,
@@ -319,4 +364,5 @@ export {
   DoNothingFetcher,
   getLogLevelNumber,
   isErrorObject,
+  combineCrossLayerProps,
 }

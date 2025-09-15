@@ -382,7 +382,10 @@ const _subLogger = <TConfig extends Config = Config>(
       )
       const theData = options?.ignoreSizeLimit
         ? data || {}
-        : capForLogging(data, context.config[CoreNamespace.root].logging.maxLogSizeInCharacters)
+        : capForLogging(
+            data,
+            context.config[CoreNamespace.root].logging.maxLogSizeInCharacters
+          )
       const logMessage = {
         id: v4(),
         environment: context.constants.environment,
