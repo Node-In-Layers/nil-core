@@ -345,12 +345,14 @@ const combineCrossLayerProps = (
   )
 
   const finalIds = ids.concat(unique)
-  return merge(
-    {
-      ids: finalIds,
-    },
-    omit(loggingData, 'ids')
-  )
+  return {
+    logging: merge(
+      {
+        ids: finalIds,
+      },
+      omit(loggingData, 'ids')
+    ),
+  }
 }
 
 export {

@@ -3,10 +3,39 @@ import {
   getLogLevelName,
   validateConfig,
   getLayersUnavailable,
+  combineCrossLayerProps,
 } from '../../src/libs.js'
 import { CoreNamespace } from '../../src'
 
 describe('/src/libs.ts', () => {
+  describe('#combineCrossLayerProps()', () => {
+    it('should combine cross layer props', () => {
+      const a = {
+        logging: {
+          ids: [{ runtimeId: '209a63e8-3323-4672-8915-3e9c8903e9d3' }],
+        },
+      }
+      const b = {
+        logging: {
+          ids: [{ requestId: '4e335178-19a3-45f9-9dfe-5431bb19e616' }],
+        },
+      }
+      const expected = {
+        logging: {
+          ids: [
+            {
+              runtimeId: '209a63e8-3323-4672-8915-3e9c8903e9d3',
+            },
+            {
+              requestId: '4e335178-19a3-45f9-9dfe-5431bb19e616',
+            },
+          ],
+        },
+      }
+      const actual = combineCrossLayerProps(a, b)
+      assert.deepEqual(actual, expected)
+    })
+  })
   describe('#getLayersUnavailable()', () => {
     it('should throw an exception when passing an unused layer', () => {
       assert.throws(() => {

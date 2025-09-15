@@ -36,7 +36,7 @@ const combineLoggingProps = (
       },
     },
     crossLayerProps || {}
-  )
+  ).logging
 }
 
 const isCrossLayerLoggingProps = (
