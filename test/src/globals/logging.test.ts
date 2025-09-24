@@ -498,8 +498,13 @@ describe('/src/globals/logging.ts', () => {
                 )
                 assert.deepEqual(
                   calls[1].args[0].error,
-                  {},
-                  'Expected empty error object'
+                  {
+                    code: 'INTERNAL_ERROR',
+                    details: 'Sync failure',
+                    errorDetails: 'Error: Sync failure',
+                    message: 'Layer function features:myFunction',
+                  },
+                  'Expected error object'
                 )
                 assert.instanceOf(e, Error, 'Expected an Error object')
                 assert.equal(
@@ -593,8 +598,13 @@ describe('/src/globals/logging.ts', () => {
                 )
                 assert.deepEqual(
                   calls[1].args[0].error,
-                  {},
-                  'Expected empty error object'
+                  {
+                    code: 'INTERNAL_ERROR',
+                    details: 'Async failure',
+                    errorDetails: 'Error: Async failure',
+                    message: 'Layer function features:myFunction',
+                  },
+                  'Expected error object'
                 )
                 assert.instanceOf(e, Error, 'Expected an Error object')
                 assert.equal(

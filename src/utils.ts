@@ -19,8 +19,11 @@ const memoizeValueSync = <T, A extends Array<any>>(
   let called = false
   return (...args: A) => {
     if (!called) {
-      called = true
       value = method(...args)
+      // This is very important that it goes afterwards. Sometimes this will throw an exception.
+      // and if one caller happened to catch it and move on, then this will never throw again, which
+      // likely means that we won't know what the heck happened.
+      called = true
     }
 
     return value
@@ -39,8 +42,10 @@ const memoizeValue = <T, A extends Array<any>>(
   return async (...args: A) => {
     return lock.acquire(key, async () => {
       if (!called) {
-        called = true
         value = await method(...args)
+        // Read above about this.
+        // eslint-disable-next-line require-atomic-updates
+        called = true
       }
 
       return value as T

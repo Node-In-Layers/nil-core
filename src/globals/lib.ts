@@ -1,9 +1,8 @@
-import merge from 'lodash/merge.js'
 import get from 'lodash/get.js'
-import omit from 'lodash/omit.js'
-import { LogLevelNames, CrossLayerProps, Logger, LogId } from '../types.js'
+import { LogLevelNames, CrossLayerProps, Logger } from '../types.js'
+import { combineCrossLayerProps } from '../libs.js'
 
-const MAX_LOG_CHARACTERS = 20000
+const MAX_LOG_CHARACTERS = 50000
 
 const defaultGetFunctionWrapLogLevel = (layerName: string): LogLevelNames => {
   switch (layerName) {
@@ -30,42 +29,14 @@ const combineLoggingProps = (
   logger: Logger,
   crossLayerProps?: CrossLayerProps
 ) => {
-  const loggingData = crossLayerProps?.logging || {}
-  const ids = loggingData.ids || []
-  const currentIds = logger.getIds()
-
-  //start with logger ids
-  const existingIds = ids.reduce(
-    (acc, obj) => {
-      return Object.entries(obj).reduce((accKeys, [key, value]) => {
-        return merge(accKeys, { [`${key}:${value}`]: key })
-      }, acc)
-    },
-    {} as Record<string, string>
-  )
-
-  //start with cross layer ids
-  const unique = currentIds.reduce(
-    (acc, passedIn) => {
-      const keys = Object.entries(passedIn)
-      const newKeys = keys
-        .filter(([key, value]) => !(`${key}:${value}` in existingIds))
-        .map(([key, value]) => ({ [key]: value }))
-      if (newKeys.length > 0) {
-        return acc.concat(newKeys)
-      }
-      return acc
-    },
-    [] as readonly LogId[]
-  )
-
-  const finalIds = ids.concat(unique)
-  return merge(
+  return combineCrossLayerProps(
     {
-      ids: finalIds,
+      logging: {
+        ids: logger.getIds(),
+      },
     },
-    omit(loggingData, 'ids')
-  )
+    crossLayerProps || {}
+  ).logging
 }
 
 const isCrossLayerLoggingProps = (

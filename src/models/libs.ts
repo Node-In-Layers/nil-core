@@ -61,12 +61,13 @@ const createModelCruds = <TData extends DataDescription>(
     return _getModel().search(ormSearch)
   }
 
-  const bulkInsertFunction = async (data: TData[]): Promise<void> => {
-    await _getModel().bulkInsert(data)
+  const bulkInsertFunction = async (data: readonly TData[]): Promise<void> => {
+    const model = _getModel()
+    await model.bulkInsert(data.map(x => model.create(x)))
   }
 
   const bulkDeleteFunction = async (
-    primaryKeys: PrimaryKeyType[]
+    primaryKeys: readonly PrimaryKeyType[]
   ): Promise<void> => {
     await _getModel().bulkDelete(primaryKeys)
   }
