@@ -1,5 +1,5 @@
 import get from 'lodash/get.js'
-import { LogLevelNames, CrossLayerProps, Logger, LogId } from '../types.js'
+import { LogLevelNames, CrossLayerProps, Logger } from '../types.js'
 import { combineCrossLayerProps } from '../libs.js'
 
 const MAX_LOG_CHARACTERS = 50000
