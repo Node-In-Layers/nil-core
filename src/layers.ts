@@ -308,7 +308,6 @@ const features = {
         .getLogger(layerContext1)
         .getAppLogger(app.name)
         .getLayerLogger(currentLayer)
-      // eslint-disable-next-line
       const layerContext = cloneDeep(
         // eslint-disable-next-line functional/immutable-data
         Object.assign(layerContext1, {

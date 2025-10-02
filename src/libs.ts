@@ -1,7 +1,12 @@
+import z, { ZodType } from 'zod'
 import get from 'lodash/get.js'
 import merge from 'lodash/merge.js'
 import omit from 'lodash/omit.js'
-import { ModelInstanceFetcher, PrimaryKeyType } from 'functional-models'
+import {
+  JsonAble,
+  ModelInstanceFetcher,
+  PrimaryKeyType,
+} from 'functional-models'
 import { wrap } from './utils.js'
 import {
   Config,
@@ -12,6 +17,9 @@ import {
   ErrorObject,
   CrossLayerProps,
   LogId,
+  NilFunction,
+  NilAnnotatedFunction,
+  Response,
 } from './types.js'
 
 const featurePassThrough = wrap
@@ -355,6 +363,35 @@ const combineCrossLayerProps = (
   }
 }
 
+/**
+ * Creates a crossLayerProps available function that is also annotated with Zod.
+ * @param props - The arguments
+ * @param implementation - Your function
+ * @returns A function with a "schema" property
+ */
+const annotatedFunction = <
+  TProps extends JsonAble,
+  TOutput extends JsonAble | undefined,
+>(
+  props: {
+    args: ZodType<TProps>
+    returns: ZodType<Response<TOutput>>
+    description?: string
+  },
+  implementation: NilFunction<TProps, TOutput>
+): NilAnnotatedFunction<TProps, TOutput> => {
+  const fn = z
+    .function()
+    .input([props.args, z.custom<CrossLayerProps>().optional()])
+    .output(props.returns)
+  const schema = props.description ? fn.describe(props.description) : fn
+  const implemented = schema.implement(implementation)
+  // @ts-ignore
+  // eslint-disable-next-line functional/immutable-data
+  implemented.schema = schema
+  return implemented as unknown as NilAnnotatedFunction<TProps, TOutput>
+}
+
 export {
   createErrorObject,
   featurePassThrough,
@@ -367,4 +404,5 @@ export {
   getLogLevelNumber,
   isErrorObject,
   combineCrossLayerProps,
+  annotatedFunction,
 }

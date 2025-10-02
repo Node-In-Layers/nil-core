@@ -1,7 +1,7 @@
 {
   "name": "@node-in-layers/core",
   "type": "module",
-  "version": "1.8.3",
+  "version": "1.9.0",
   "description": "The core library for the Node In Layers rapid web development framework.",
   "main": "index.js",
   "scripts": {
@@ -89,7 +89,8 @@
     "modern-async": "^2.0.4",
     "parent-module": "^3.1.0",
     "safe-json-value": "^3.0.1",
-    "uuid": "^11.1.0"
+    "uuid": "^11.1.0",
+    "zod": "^4.1.11"
   },
   "homepage": "https://github.com/Node-In-Layers/nil-core#readme"
 }

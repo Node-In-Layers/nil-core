@@ -1,9 +1,11 @@
 import { assert } from 'chai'
+import z from 'zod'
 import {
   getLogLevelName,
   validateConfig,
   getLayersUnavailable,
   combineCrossLayerProps,
+  annotatedFunction,
 } from '../../src/libs.js'
 import { CoreNamespace } from '../../src'
 
@@ -187,6 +189,110 @@ describe('/src/libs.ts', () => {
       assert.throws(() => {
         getLogLevelName(6)
       })
+    })
+  })
+  describe('#annotatedFunction()', () => {
+    it('exposes an executable function', () => {
+      const fn = annotatedFunction(
+        {
+          description: 'Test annotated function',
+          args: z.object({ myArgument: z.string() }),
+          returns: z.object({ output: z.string() }),
+        },
+        (args: { myArgument: string }) => ({
+          output: `Hello ${args.myArgument}`,
+        })
+      )
+      assert.isFunction(fn)
+    })
+
+    it('attaches a zod function schema', () => {
+      const fn = annotatedFunction(
+        {
+          description: 'Test annotated function',
+          args: z.object({ myArgument: z.string() }),
+          returns: z.object({ output: z.string() }),
+        },
+        (args: { myArgument: string }) => ({
+          output: `Hello ${args.myArgument}`,
+        })
+      )
+      assert.isOk(fn.schema)
+    })
+
+    it('preserves provided description on schema', () => {
+      const description = 'Test annotated function'
+      const fn = annotatedFunction(
+        {
+          description,
+          args: z.object({ myArgument: z.string() }),
+          returns: z.object({ output: z.string() }),
+        },
+        (args: { myArgument: string }) => ({
+          output: `Hello ${args.myArgument}`,
+        })
+      )
+      assert.equal(fn.schema.description, description)
+    })
+
+    it('executes via direct call', () => {
+      const fn = annotatedFunction(
+        {
+          description: 'Test annotated function',
+          args: z.object({ myArgument: z.string() }),
+          returns: z.object({ output: z.string() }),
+        },
+        (args: { myArgument: string }) => ({
+          output: `Hello ${args.myArgument}`,
+        })
+      )
+      const direct = fn({ myArgument: 'World' })
+      assert.deepEqual(direct, { output: 'Hello World' })
+    })
+
+    it('allows calling without crossLayerProps', () => {
+      const fn = annotatedFunction(
+        {
+          args: z.object({ myArgument: z.string() }),
+          returns: z.object({ output: z.string() }),
+        },
+        (args: { myArgument: string }) => ({
+          output: `Hello ${args.myArgument}`,
+        })
+      )
+      const withoutProps = fn({ myArgument: 'A' })
+      assert.deepEqual(withoutProps, { output: 'Hello A' })
+    })
+
+    it('accepts crossLayerProps as the second argument', () => {
+      const fn = annotatedFunction(
+        {
+          args: z.object({ myArgument: z.string() }),
+          returns: z.object({ output: z.string() }),
+        },
+        (args: { myArgument: string }) => ({
+          output: `Hello ${args.myArgument}`,
+        })
+      )
+      const withProps = fn(
+        { myArgument: 'B' },
+        { logging: { ids: [{ requestId: 'req-1' }] } }
+      )
+      assert.deepEqual(withProps, { output: 'Hello B' })
+    })
+
+    it('implemented wrapper validates input and throws for invalid args', () => {
+      const fn = annotatedFunction(
+        {
+          args: z.object({ myArgument: z.string() }),
+          returns: z.object({ output: z.string() }),
+        },
+        (args: { myArgument: string }) => ({
+          output: `Hello ${args.myArgument}`,
+        })
+      )
+      // @ts-ignore
+      assert.throws(() => fn({ myArgument: 123 } as any))
     })
   })
 })
