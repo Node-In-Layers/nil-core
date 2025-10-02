@@ -3,6 +3,8 @@
 ![Unit Tests](https://github.com/node-in-layers/nil-core/actions/workflows/ut.yml/badge.svg?branch=main)
 [![Coverage Status](https://coveralls.io/repos/github/Node-In-Layers/nil-core/badge.svg?branch=try-again)](https://coveralls.io/github/Node-In-Layers/nil-core?branch=try-again)
 
+<img src="./public/nil.png" width="160" height="150" />
+
 Rapid, batteries included, opinionated web development with functional node.
 
 ## The Batteries Included
@@ -595,3 +597,61 @@ Inside of these app folders, there should be the layers of the app, which can ei
 Because this framework, loads all of the layers at runtime, there are many situations where it is best to not configure things until they are needed. An example would be a database connection. Instead of configuring this connection in the base level of a `create()` function, it is often better to create a function inside of `create()` that the other functions use, when they are actually needed. And then further, memoizing that function call so that subsequent calls get the same object again and again.
 
 The biggest reason for this is performance.
+
+# Additional Noteworthy Features
+
+## Annotated Functions
+
+Node-in-layers provides a function `annotatedFunction()` that is extremely useful for building consumable living APIs.
+This functionality is heavily recommended for feature level exported functions, or higher.
+
+This function AUTOMATICALLY accounts for crossLayerProps as a last optional argument to the function as well that the output could be the type you describe OR an ErrorObject type.
+
+Here is an example:
+
+```typescript
+// ./src/myDomain/features.ts
+import { annotatedFunction, isErrorObject } from '@node-in-layers/core'
+
+const create = (context: FeaturesContext<Config, MyServicesContext>) => {
+  const hello = annotatedFunction(
+    {
+      description:
+        'This is my function, there are many like it, but this one is mine.',
+      args: z.object({
+        myArgument: z.string(),
+      }),
+      returns: z.object({
+        output: z.string(),
+      }),
+    },
+    (args, crossLayerProps) => {
+      return {
+        output: `Hello ${args.myArgument}`,
+      }
+    }
+  )
+
+  return {
+    hello,
+  }
+}
+
+// This is normally automatically done
+const context = {
+  features: {
+    myDomain: create({}),
+  },
+}
+//
+const result = context.features.myDomain.hello({ myArgument: 'World' })
+
+// Result type, automatically an "or" with ErrorObject
+if (isErrorObject(result)) {
+  throw new Error('There was an error')
+}
+
+console.info(result.output) // "Hello World"
+```
+
+NOTE: The reason why an object is enforced for input AND output, is it sets up a layer function to be exported and described in an OpenAPI format, or exported via an AI MCP layer.

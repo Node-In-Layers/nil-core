@@ -1,3 +1,4 @@
+import z, { ZodType } from 'zod'
 import {
   DataDescription,
   ModelFactory,
@@ -47,6 +48,7 @@ type App = Readonly<{
   models?: Record<string, ModelConstructor>
 }>
 
+/* eslint-disable no-magic-numbers */
 /**
  * Log Levels
  */
@@ -54,11 +56,8 @@ enum LogLevel {
   TRACE = 0,
   DEBUG = 1,
   INFO = 2,
-  // eslint-disable-next-line no-magic-numbers
   WARN = 3,
-  // eslint-disable-next-line no-magic-numbers
   ERROR = 4,
-  // eslint-disable-next-line no-magic-numbers
   SILENT = 5,
 }
 /* eslint-enable no-magic-numbers */
@@ -841,7 +840,46 @@ type System<
   features: TFeatures
 }
 
+/**
+ * A standardized response. Either the normal result, or an error object.
+ */
 type Response<R> = R | ErrorObject
+
+/**
+ * Helper type to determine the correct return type
+ */
+type NilFunctionReturn<TOutput> =
+  TOutput extends Promise<infer U> ? Promise<Response<U>> : Response<TOutput>
+
+/**
+ * A node in layer function. This standardized function takes all its arguments via a props object, and then it takes an optional
+ * CrossLayerProps for between layer communications.
+ */
+type NilFunction<
+  TProps extends JsonAble,
+  TOutput extends JsonAble | undefined,
+> = (
+  props: TProps,
+  crossLayerProps?: CrossLayerProps
+) => NilFunctionReturn<TOutput>
+
+/**
+ * A node in layer function that has been annotated with a schema.
+ * @interface
+ */
+type NilAnnotatedFunction<
+  TProps extends JsonAble,
+  TOutput extends JsonAble | undefined,
+> = NilFunction<TProps, TOutput> &
+  Readonly<{
+    /**
+     * A Zod schema that describes the function
+     */
+    schema: z.ZodFunction<
+      z.ZodTuple<[ZodType<TProps>, ZodType<CrossLayerProps | undefined>]>,
+      ZodType<NilFunctionReturn<TOutput>>
+    >
+  }>
 
 export {
   Response,
@@ -888,4 +926,6 @@ export {
   LogWrapAsync,
   LayerFunction,
   LogInstanceOptions,
+  NilAnnotatedFunction,
+  NilFunction,
 }
