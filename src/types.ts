@@ -26,6 +26,10 @@ type App = Readonly<{
    */
   name: string
   /**
+   * The description of the app
+   */
+  description?: string
+  /**
    * Optional: Services layer
    */
   services?: AppLayer<Config, any>
