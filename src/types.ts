@@ -856,7 +856,7 @@ type NilFunctionReturn<TOutput> =
  * CrossLayerProps for between layer communications.
  */
 type NilFunction<
-  TProps extends JsonAble,
+  TProps extends NonNullable<JsonAble>,
   TOutput extends JsonAble | undefined,
 > = (
   props: TProps,
@@ -868,7 +868,7 @@ type NilFunction<
  * @interface
  */
 type NilAnnotatedFunction<
-  TProps extends JsonAble,
+  TProps extends NonNullable<JsonAble>,
   TOutput extends JsonAble | undefined,
 > = NilFunction<TProps, TOutput> &
   Readonly<{

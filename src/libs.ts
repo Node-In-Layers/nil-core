@@ -370,7 +370,7 @@ const combineCrossLayerProps = (
  * @returns A function with a "schema" property
  */
 const annotatedFunction = <
-  TProps extends JsonAble,
+  TProps extends NonNullable<JsonAble>,
   TOutput extends JsonAble | undefined,
 >(
   props: {
