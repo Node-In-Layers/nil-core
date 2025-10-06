@@ -840,25 +840,30 @@ type System<
   features: TFeatures
 }
 
+type Without<T, U> = { [P in Exclude<keyof T, keyof U>]?: never }
+
+type XOR<T, U> = T | U extends object
+  ? (Without<T, U> & U) | (Without<U, T> & T)
+  : T | U
+
 /**
  * A standardized response. Either the normal result, or an error object.
  */
-type Response<R> = R | ErrorObject
+type Response<R> = XOR<R, ErrorObject>
 
 /**
  * Helper type to determine the correct return type
+ * Response<T> for non-void; void stays void. Supports sync/async via MaybePromise.
  */
-type NilFunctionReturn<TOutput> =
-  TOutput extends Promise<infer U> ? Promise<Response<U>> : Response<TOutput>
+type NilFunctionReturn<TOutput> = [TOutput] extends [void]
+  ? MaybePromise<void>
+  : MaybePromise<Response<TOutput>>
 
 /**
  * A node in layer function. This standardized function takes all its arguments via a props object, and then it takes an optional
  * CrossLayerProps for between layer communications.
  */
-type NilFunction<
-  TProps extends JsonAble,
-  TOutput extends JsonAble | undefined,
-> = (
+type NilFunction<TProps extends JsonAble, TOutput extends JsonAble | void> = (
   props: TProps,
   crossLayerProps?: CrossLayerProps
 ) => NilFunctionReturn<TOutput>
@@ -869,7 +874,7 @@ type NilFunction<
  */
 type NilAnnotatedFunction<
   TProps extends JsonAble,
-  TOutput extends JsonAble | undefined,
+  TOutput extends JsonAble | void,
 > = NilFunction<TProps, TOutput> &
   Readonly<{
     /**

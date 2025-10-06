@@ -364,6 +364,24 @@ const combineCrossLayerProps = (
 }
 
 /**
+ * Zod schema for ErrorObject (exported for external validation/unions)
+ */
+export const errorObjectSchema = (): z.ZodType<ErrorObject> =>
+  z.object({
+    error: z.object({
+      code: z.string(),
+      message: z.string(),
+      details: z.string().optional(),
+      data: z.record(z.string(), z.any()).optional(),
+      trace: z.string().optional(),
+      cause: z
+        .object({ error: z.any() })
+        .transform(val => ({ error: val.error }))
+        .optional() as unknown as z.ZodType<ErrorObject | undefined>,
+    }),
+  })
+
+/**
  * Creates a crossLayerProps available function that is also annotated with Zod.
  * @param props - The arguments
  * @param implementation - Your function
@@ -371,25 +389,46 @@ const combineCrossLayerProps = (
  */
 const annotatedFunction = <
   TProps extends JsonAble,
-  TOutput extends JsonAble | undefined,
+  TOutput extends JsonAble | void,
+  TImplementation extends NilFunction<TProps, TOutput> = NilFunction<
+    TProps,
+    TOutput
+  >,
 >(
   props: {
     args: ZodType<TProps>
-    returns: ZodType<Response<TOutput>>
+    /**
+     * Success payload schema (NOT wrapped). If omitted and output is void, schema is void.
+     * If provided, output schema becomes Response<returns> (success | error).
+     */
+    returns?: ZodType<TOutput extends void ? never : TOutput>
     description?: string
   },
-  implementation: NilFunction<TProps, TOutput>
-): NilAnnotatedFunction<TProps, TOutput> => {
-  const fn = z
+  implementation: TImplementation
+): NilAnnotatedFunction<TProps, TOutput> & TImplementation => {
+  const base = z
     .function()
     .input([props.args, z.custom<CrossLayerProps>().optional()])
-    .output(props.returns)
+
+  const outputSchema = (() => {
+    // No returns schema: assume void
+    if (!props.returns) {
+      return z.void()
+    }
+    // Build Response<returns> = returns | ErrorObject
+    return z.union([props.returns, errorObjectSchema()]) as unknown as ZodType<
+      Response<Exclude<TOutput, void>>
+    >
+  })()
+
+  const fn = base.output(outputSchema)
   const schema = props.description ? fn.describe(props.description) : fn
   const implemented = schema.implement(implementation)
   // @ts-ignore
   // eslint-disable-next-line functional/immutable-data
   implemented.schema = schema
-  return implemented as unknown as NilAnnotatedFunction<TProps, TOutput>
+  return implemented as unknown as NilAnnotatedFunction<TProps, TOutput> &
+    TImplementation
 }
 
 export {
