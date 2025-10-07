@@ -3,7 +3,7 @@ import get from 'lodash/get'
 import sinon from 'sinon'
 import { Model, PrimaryKeyUuidProperty } from 'functional-models'
 import { features, services as layersServices } from '../../src/layers'
-import { DoNothingFetcher } from '../../src/libs'
+import { annotatedFunction, DoNothingFetcher } from '../../src/libs'
 import { createMockFs, validConfig2, validConfig3 } from '../mocks'
 import {
   compositeLogger,
@@ -12,6 +12,7 @@ import {
   LogFormat,
   LogLevelNames,
 } from '../../src'
+import z from 'zod'
 
 const modelsConfig1 = () => {
   const app1Models = {
@@ -46,12 +47,48 @@ const modelsConfig1 = () => {
     create: sinon.stub().returns({}),
   }
 
+  const app1Features = {
+    create: sinon.stub().returns({
+      myFeature: annotatedFunction(
+        {
+          description: 'My feature',
+          args: z.object({
+            myArgument: z.string(),
+          }),
+          returns: z.object({
+            myOutput: z.string(),
+          }),
+        },
+        () => {
+          return {
+            myOutput: 'My output',
+          }
+        }
+      ),
+    }),
+  }
+
   const app2Services = {
     create: sinon.stub().returns({}),
   }
 
   const app2Features = {
-    create: sinon.stub().returns({}),
+    create: sinon.stub().callsFake(context => ({
+      getFeature1: annotatedFunction(
+        {
+          description: 'Gets the feature',
+          args: z.object({}),
+          returns: z.object({
+            myOutput: z.boolean(),
+          }),
+        },
+        args => {
+          return {
+            myOutput: Boolean(context.features.app1.myFeature.schema),
+          }
+        }
+      ),
+    })),
   }
 
   const app1 = {
@@ -60,8 +97,10 @@ const modelsConfig1 = () => {
     create: {
       models: app1Models,
       services: app1Services.create,
+      features: app1Features.create,
     },
     services: app1Services,
+    features: app1Features,
   }
   const app2 = {
     name: 'app2',
@@ -469,9 +508,30 @@ const _setup = (config?: Config) => {
   }
 }
 
+const annotatedFunctionConfig = () => {}
+
 describe('/src/layers.ts', () => {
   describe('#features.create()', () => {
     describe('#loadLayers()', () => {
+      it('should keep annotated functions intact even though they are wrapped', async () => {
+        const config = modelsConfig1()
+        const inputs = _setup(config)
+        const instance = features.create(inputs)
+        const context = await instance.loadLayers()
+        console.log(context.features.app1.myFeature)
+        assert.isOk(context.features.app1.myFeature.schema)
+      })
+      it('should keep annotated functions intact through context', async () => {
+        const config = modelsConfig1()
+        const inputs = _setup(config)
+        const instance = features.create(inputs)
+        const context = await instance.loadLayers()
+        const actual = context.features.app2.getFeature1()
+        const expected = {
+          myOutput: true,
+        }
+        assert.deepEqual(actual, expected)
+      })
       it('should have the feature/services info when feature is run that calls service.', async () => {
         const config = customLayer1()
         const inputs = _setup(config)
