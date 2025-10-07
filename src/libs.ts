@@ -1,9 +1,10 @@
-import z, { ZodType } from 'zod'
+import z, { ZodObject, ZodType } from 'zod'
 import get from 'lodash/get.js'
 import merge from 'lodash/merge.js'
 import omit from 'lodash/omit.js'
 import {
   JsonAble,
+  JsonObj,
   ModelInstanceFetcher,
   PrimaryKeyType,
 } from 'functional-models'
@@ -20,6 +21,7 @@ import {
   NilFunction,
   NilAnnotatedFunction,
   Response,
+  XOR,
 } from './types.js'
 
 const featurePassThrough = wrap
@@ -388,8 +390,8 @@ export const errorObjectSchema = (): z.ZodType<ErrorObject> =>
  * @returns A function with a "schema" property
  */
 const annotatedFunction = <
-  TProps extends JsonAble,
-  TOutput extends JsonAble | void,
+  TProps extends JsonObj,
+  TOutput extends XOR<JsonObj, void>,
   TImplementation extends NilFunction<TProps, TOutput> = NilFunction<
     TProps,
     TOutput

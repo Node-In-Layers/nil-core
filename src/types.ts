@@ -5,6 +5,7 @@ import {
   ModelInstanceFetcher,
   ModelType,
   JsonAble,
+  JsonObj,
 } from 'functional-models'
 
 type ModelConstructor = Readonly<{
@@ -851,19 +852,21 @@ type XOR<T, U> = T | U extends object
  */
 type Response<R> = XOR<R, ErrorObject>
 
+type TrueMaybePromise<T> = XOR<Promise<T>, T>
+
 /**
  * Helper type to determine the correct return type
  * Response<T> for non-void; void stays void. Supports sync/async via MaybePromise.
  */
 type NilFunctionReturn<TOutput> = [TOutput] extends [void]
-  ? MaybePromise<void>
-  : MaybePromise<Response<TOutput>>
+  ? TrueMaybePromise<void>
+  : TrueMaybePromise<Response<TOutput>>
 
 /**
  * A node in layer function. This standardized function takes all its arguments via a props object, and then it takes an optional
  * CrossLayerProps for between layer communications.
  */
-type NilFunction<TProps extends JsonAble, TOutput extends JsonAble | void> = (
+type NilFunction<TProps extends JsonObj, TOutput extends XOR<JsonObj, void>> = (
   props: TProps,
   crossLayerProps?: CrossLayerProps
 ) => NilFunctionReturn<TOutput>
@@ -873,8 +876,8 @@ type NilFunction<TProps extends JsonAble, TOutput extends JsonAble | void> = (
  * @interface
  */
 type NilAnnotatedFunction<
-  TProps extends JsonAble,
-  TOutput extends JsonAble | void,
+  TProps extends JsonObj,
+  TOutput extends JsonObj | void,
 > = NilFunction<TProps, TOutput> &
   Readonly<{
     /**
@@ -933,4 +936,6 @@ export {
   LogInstanceOptions,
   NilAnnotatedFunction,
   NilFunction,
+  XOR,
+  TrueMaybePromise,
 }
