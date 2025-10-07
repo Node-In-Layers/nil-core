@@ -353,7 +353,8 @@ const features = {
                     return merge(acc3, { [propertyName]: func })
                   }
 
-                  const newFunc = (...args2) => {
+                  // WE HAVE TO MERGE the function on top. If we are wrapping, we can loose annotated information.
+                  const newFunc = merge((...args2) => {
                     const [argsNoCrossLayer, crossLayer] =
                       extractCrossLayerProps(args2)
                     // Automatically create the crossLayerProps
@@ -366,7 +367,7 @@ const features = {
                         },
                       }
                     )
-                  }
+                  }, func)
                   return merge(acc3, { [propertyName]: newFunc })
                 },
                 {}
@@ -417,7 +418,7 @@ const features = {
 
             const newFunc = layerLogger._logWrap(
               propertyName,
-              (log, ...args2) => {
+              merge((log, ...args2) => {
                 const [argsNoCrossLayer, crossLayer] =
                   extractCrossLayerProps(args2)
                 // Automatically create the crossLayerProps
@@ -432,7 +433,7 @@ const features = {
                   }
                 )
                 return func(...args2)
-              }
+              }, func)
             )
             return merge(acc, { [propertyName]: newFunc })
           }, {})
@@ -516,7 +517,7 @@ const features = {
                       return merge(acc3, { [propertyName]: func })
                     }
 
-                    const newFunc = (...args2) => {
+                    const newFunc = merge((...args2) => {
                       const [argsNoCrossLayer, crossLayer] =
                         extractCrossLayerProps(args2)
                       // Automatically create the crossLayerProps
@@ -529,7 +530,7 @@ const features = {
                           },
                         }
                       )
-                    }
+                    }, func)
                     return merge(acc3, { [propertyName]: newFunc })
                   },
                   {}
@@ -579,7 +580,7 @@ const features = {
               }
               const newFunc = layerLogger._logWrap(
                 propertyName,
-                (log, ...args2) => {
+                merge((log, ...args2) => {
                   const [argsNoCrossLayer, crossLayer] =
                     extractCrossLayerProps(args2)
                   // Automatically create the crossLayerProps
@@ -595,7 +596,7 @@ const features = {
                   )
                   // @ts-ignore
                   return func(...args2)
-                }
+                }, func)
               )
               return merge(acc, { [propertyName]: newFunc })
             }, {})

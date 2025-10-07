@@ -248,7 +248,7 @@ const _layerLogger = <TConfig extends Config = Config>(
   ) => {
     // @ts-ignore
     const logLevel = logLevelGetter(layerName, functionName)
-    return (...a: A) => {
+    return merge((...a: A) => {
       const [argsNoCrossLayer, crossLayer] = extractCrossLayerProps(a)
       const funcLogger = getFunctionLogger(functionName, crossLayer)
       funcLogger[logLevel](`Executing ${layerName} function`, {
@@ -299,7 +299,7 @@ const _layerLogger = <TConfig extends Config = Config>(
         )
         throw e
       }
-    }
+    }, func)
   }
 
   // @ts-ignore
