@@ -416,24 +416,27 @@ const features = {
               return merge(acc, { [propertyName]: func })
             }
 
-            const newFunc = layerLogger._logWrap(
-              propertyName,
-              merge((log, ...args2) => {
-                const [argsNoCrossLayer, crossLayer] =
-                  extractCrossLayerProps(args2)
-                // Automatically create the crossLayerProps
-                // @ts-ignore
-                return func(
-                  ...argsNoCrossLayer,
-                  crossLayer || {
-                    // create cross layer args.
-                    logging: {
-                      ids: log.getIds(),
-                    },
-                  }
-                )
-                return func(...args2)
-              }, func)
+            const newFunc = merge(
+              layerLogger._logWrap(
+                propertyName,
+                merge((log, ...args2) => {
+                  const [argsNoCrossLayer, crossLayer] =
+                    extractCrossLayerProps(args2)
+                  // Automatically create the crossLayerProps
+                  // @ts-ignore
+                  return func(
+                    ...argsNoCrossLayer,
+                    crossLayer || {
+                      // create cross layer args.
+                      logging: {
+                        ids: log.getIds(),
+                      },
+                    }
+                  )
+                  return func(...args2)
+                }, func)
+              ),
+              func
             )
             return merge(acc, { [propertyName]: newFunc })
           }, {})
@@ -578,25 +581,28 @@ const features = {
               if (get(ignoreLayerFunctions, functionLevelKey)) {
                 return merge(acc, { [propertyName]: func })
               }
-              const newFunc = layerLogger._logWrap(
-                propertyName,
-                merge((log, ...args2) => {
-                  const [argsNoCrossLayer, crossLayer] =
-                    extractCrossLayerProps(args2)
-                  // Automatically create the crossLayerProps
-                  // @ts-ignore
-                  return func(
-                    ...argsNoCrossLayer,
-                    crossLayer || {
-                      // create cross layer args.
-                      logging: {
-                        ids: log.getIds(),
-                      },
-                    }
-                  )
-                  // @ts-ignore
-                  return func(...args2)
-                }, func)
+              const newFunc = merge(
+                layerLogger._logWrap(
+                  propertyName,
+                  merge((log, ...args2) => {
+                    const [argsNoCrossLayer, crossLayer] =
+                      extractCrossLayerProps(args2)
+                    // Automatically create the crossLayerProps
+                    // @ts-ignore
+                    return func(
+                      ...argsNoCrossLayer,
+                      crossLayer || {
+                        // create cross layer args.
+                        logging: {
+                          ids: log.getIds(),
+                        },
+                      }
+                    )
+                    // @ts-ignore
+                    return func(...args2)
+                  }, func)
+                ),
+                func
               )
               return merge(acc, { [propertyName]: newFunc })
             }, {})

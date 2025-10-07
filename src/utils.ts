@@ -1,14 +1,18 @@
+import merge from 'lodash/merge.js'
 import { v4 } from 'uuid'
 import AsyncLock from 'async-lock'
 
 const wrap = <T extends Array<any>, U>(fn: (...args: T) => U) => {
-  return (...args: T): U => fn(...args)
+  return merge((...args: T): U => fn(...args), fn)
 }
 
 const promiseWrap = <T extends Array<any>, U>(
   fn: (...args: T) => Promise<U> | U
 ) => {
-  return (...args: T): Promise<U> => Promise.resolve().then(() => fn(...args))
+  return merge(
+    (...args: T): Promise<U> => Promise.resolve().then(() => fn(...args)),
+    fn
+  )
 }
 
 const memoizeValueSync = <T, A extends Array<any>>(
