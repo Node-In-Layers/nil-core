@@ -427,8 +427,11 @@ const annotatedFunction = <
 
   const fn = base.output(outputSchema)
   const schema = props.description ? fn.describe(props.description) : fn
-  const implemented = schema.implement(implementation)
-  // @ts-ignore
+
+  const isAsync = implementation.constructor?.name === 'AsyncFunction'
+  const implemented = isAsync
+    ? schema.implementAsync(implementation as any)
+    : schema.implement(implementation as any)
   // eslint-disable-next-line functional/immutable-data
   implemented.schema = schema
   return implemented as unknown as NilAnnotatedFunction<TProps, TOutput> &

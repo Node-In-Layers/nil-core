@@ -433,7 +433,6 @@ const features = {
                       },
                     }
                   )
-                  return func(...args2)
                 }, func)
               ),
               func
@@ -598,8 +597,6 @@ const features = {
                         },
                       }
                     )
-                    // @ts-ignore
-                    return func(...args2)
                   }, func)
                 ),
                 func
