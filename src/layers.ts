@@ -4,7 +4,7 @@ import omit from 'lodash/omit.js'
 import merge from 'lodash/merge.js'
 import cloneDeep from 'lodash/cloneDeep.js'
 import { DataDescription, Model, ModelType } from 'functional-models'
-import { extractCrossLayerProps } from './globals/lib.js'
+import { extractCrossLayerProps } from './globals/libs.js'
 import {
   App,
   AppLayer,

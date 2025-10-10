@@ -889,6 +889,28 @@ type NilAnnotatedFunction<
     >
   }>
 
+/**
+ * The arguments to an Annotated Function
+ * @interface
+ */
+type AnnotatedFunctionProps<
+  TProps extends JsonObj,
+  TOutput extends JsonObj | void,
+> = {
+  /**
+   * The input arguments for the function.
+   */
+  args: ZodType<TProps>
+  /**
+   * The returns (if not a void)
+   */
+  returns?: ZodType<TOutput extends void ? never : TOutput>
+  /**
+   * An optional description that explains how to use the function and what it does.
+   */
+  description?: string
+}
+
 export {
   Response,
   Config,
@@ -938,4 +960,5 @@ export {
   NilFunction,
   XOR,
   TrueMaybePromise,
+  AnnotatedFunctionProps,
 }

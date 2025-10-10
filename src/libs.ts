@@ -1,9 +1,8 @@
-import z, { ZodObject, ZodType } from 'zod'
+import z, { ZodType } from 'zod'
 import get from 'lodash/get.js'
 import merge from 'lodash/merge.js'
 import omit from 'lodash/omit.js'
 import {
-  JsonAble,
   JsonObj,
   ModelInstanceFetcher,
   PrimaryKeyType,
@@ -22,6 +21,7 @@ import {
   NilAnnotatedFunction,
   Response,
   XOR,
+  AnnotatedFunctionProps,
 } from './types.js'
 
 const featurePassThrough = wrap
@@ -397,15 +397,7 @@ const annotatedFunction = <
     TOutput
   >,
 >(
-  props: {
-    args: ZodType<TProps>
-    /**
-     * Success payload schema (NOT wrapped). If omitted and output is void, schema is void.
-     * If provided, output schema becomes Response<returns> (success | error).
-     */
-    returns?: ZodType<TOutput extends void ? never : TOutput>
-    description?: string
-  },
+  props: AnnotatedFunctionProps<TProps, TOutput>,
   implementation: TImplementation
 ): NilAnnotatedFunction<TProps, TOutput> & TImplementation => {
   const base = z
@@ -438,6 +430,18 @@ const annotatedFunction = <
     TImplementation
 }
 
+/**
+ * Creates standardized annotation function arguments. already typed.
+ * @param args - Arguments.
+ * @returns An AnnotatedFunctionProps object.
+ */
+const annotationFunctionProps = <
+  TProps extends JsonObj,
+  TOutput extends JsonObj | void,
+>(
+  args: AnnotatedFunctionProps<TProps, TOutput>
+) => args
+
 export {
   createErrorObject,
   featurePassThrough,
@@ -451,4 +455,5 @@ export {
   isErrorObject,
   combineCrossLayerProps,
   annotatedFunction,
+  annotationFunctionProps,
 }

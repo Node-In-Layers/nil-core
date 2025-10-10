@@ -35,7 +35,7 @@ import {
   combineLoggingProps,
   capForLogging,
   extractCrossLayerProps,
-} from './lib.js'
+} from './libs.js'
 
 const MAX_LOGGING_ATTEMPTS = 5
 
@@ -156,7 +156,7 @@ const logTcp = (context: CommonContext) => {
             return true
           })
           .catch(e => {
-            // TODO: Narrow down the scope of these catches
+            // TODO: Narrow down the scope of these catches. Example, depending on error, maybe you do a retry.
             console.warn('Logging error')
             console.warn(e)
             return false

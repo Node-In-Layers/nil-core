@@ -16,10 +16,12 @@ const loadSystem = async <TConfig extends Config = Config>(args: {
 }) => {
   const globalServices = globalsApp.services.create({
     environment: args.environment,
+    /* c8 ignore next */
     workingDirectory: typeof process !== 'undefined' ? process.cwd() : '',
   })
   const globalFeatures = globalsApp.features.create({
     services: {
+      // @ts-ignore
       [globalsApp.name]: globalServices,
     },
   })
