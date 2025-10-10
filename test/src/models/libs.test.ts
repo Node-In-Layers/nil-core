@@ -6,8 +6,6 @@ import {
   OrmModel,
   OrmModelInstance,
   OrmSearch,
-  OrmSearchResult,
-  PrimaryKeyType,
   ToObjectResult,
 } from 'functional-models'
 
@@ -31,6 +29,8 @@ describe('/src/modelCruds/libs.ts', () => {
       create: sinon.stub().returns(instanceStub),
       retrieve: sinon.stub().resolves(instanceStub),
       delete: sinon.stub().resolves(),
+      bulkInsert: sinon.stub().resolves(),
+      bulkDelete: sinon.stub().resolves(),
       search: sinon.stub().resolves({ items: [instanceStub], total: 1 }),
       getModelDefinition: sinon.stub().returns({ primaryKeyName: 'id' }),
     } as any
@@ -66,6 +66,22 @@ describe('/src/modelCruds/libs.ts', () => {
         modelFactory.calledOnce,
         'Factory should be called only once'
       )
+    })
+
+    describe('#bulkInsert()', () => {
+      it('should bulk insert instances', async () => {
+        const cruds = createModelCruds<TestData>(modelStub)
+        const data = [{ name: 'test' }, { name: 'test2' }]
+        await cruds.bulkInsert(data)
+      })
+    })
+
+    describe('#bulkDelete()', () => {
+      it('should bulk delete instances', async () => {
+        const cruds = createModelCruds<TestData>(modelStub)
+        const data = [{ id: '1' }, { id: '2' }]
+        await cruds.bulkDelete(data)
+      })
     })
 
     describe('#create()', () => {

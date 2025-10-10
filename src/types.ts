@@ -19,16 +19,16 @@ type ModelConstructor = Readonly<{
 }>
 
 /**
- * An app.
+ * A domain within a system.
  * @interface
  */
 type App = Readonly<{
   /**
-   * The name of the app
+   * The name of the domain
    */
   name: string
   /**
-   * The description of the app
+   * The description of the domain
    */
   description?: string
   /**
@@ -208,7 +208,7 @@ type FunctionLogger = Logger
 
 /**
  * A logger for a layer. (Services/Features/etc)
- * Already has the app's name appended to the logging data as well as the runtimeId.
+ * Already has the domain's name appended to the logging data as well as the runtimeId.
  * @interface
  */
 type LayerLogger = Logger &
@@ -272,7 +272,7 @@ type LayerLogger = Logger &
   }>
 
 /**
- * A logger for an app.
+ * A logger for an domain.
  * @interface
  */
 type AppLogger = Logger &
@@ -283,7 +283,7 @@ type AppLogger = Logger &
     ) => LayerLogger
   }>
 
-type GetAppLogger = (appName: string) => AppLogger
+type GetAppLogger = (domainName: string) => AppLogger
 
 enum CommonLayerName {
   models = 'models',
@@ -500,7 +500,7 @@ type GetModelPropsFunc = (
 ) => PartialModelProps
 
 /**
- * Services for the layer app
+ * Services for the layer domain
  */
 type LayerServices = Readonly<{
   /**
@@ -509,19 +509,19 @@ type LayerServices = Readonly<{
   getModelProps: (context: ServicesContext) => ModelProps
   /**
    * Loads a layer.
-   * @param app
+   * @param domain
    * @param layer
    * @param existingLayers
    */
   loadLayer: (
-    app: App,
+    domain: App,
     layer: string,
     existingLayers: LayerContext
   ) => MaybePromise<GenericLayer | undefined>
 }>
 
 /**
- * The services layer for the core layers app
+ * The services layer for the core layers domain
  * @interface
  */
 type LayerServicesLayer = {
@@ -638,12 +638,12 @@ type CoreConfig = Readonly<{
    */
   layerOrder: readonly LayerDescription[]
   /**
-   * Already loaded apps.
+   * Already loaded domains.
    * Most often take the form of doing require/imports directly in the config.
    */
   apps: readonly App[]
   /**
-   * Optional: The namespace to the app.services that has a "getModelProps()" function used for loading models
+   * Optional: The namespace to the domain.services that has a "getModelProps()" function used for loading models
    */
   modelFactory?: string
   /**
@@ -676,7 +676,7 @@ type Config = Readonly<{
 }>
 
 /**
- * A generic layer within an app
+ * A generic layer within an domain
  * @interface
  */
 type AppLayer<
@@ -881,6 +881,14 @@ type NilAnnotatedFunction<
 > = NilFunction<TProps, TOutput> &
   Readonly<{
     /**
+     * The name of the function.
+     */
+    functionName: string
+    /**
+     * The domain the function is within.
+     */
+    domain: string
+    /**
      * A Zod schema that describes the function
      */
     schema: z.ZodFunction<
@@ -898,6 +906,18 @@ type AnnotatedFunctionProps<
   TOutput extends JsonObj | void,
 > = {
   /**
+   * The name of the function.
+   */
+  functionName: string
+  /**
+   * The domain the function is within.
+   */
+  domain: string
+  /**
+   * An optional description that explains how to use the function and what it does.
+   */
+  description?: string
+  /**
    * The input arguments for the function.
    */
   args: ZodType<TProps>
@@ -905,10 +925,6 @@ type AnnotatedFunctionProps<
    * The returns (if not a void)
    */
   returns?: ZodType<TOutput extends void ? never : TOutput>
-  /**
-   * An optional description that explains how to use the function and what it does.
-   */
-  description?: string
 }
 
 export {

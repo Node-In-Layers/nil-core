@@ -346,6 +346,27 @@ describe('/src/globals/logging.ts', () => {
         assert.isFalse(mockLogMethod.called)
       })
 
+      it('should respect ignoreSizeLimit', () => {
+        const { context, logger, mockLogMethod } = _getMockLogger({
+          config: {
+            [CoreNamespace.root]: {
+              logging: { logLevel: LogLevelNames.info },
+            },
+          },
+        })
+        const rootLogger = logger.getLogger(context)
+        rootLogger.info(
+          'Should log',
+          { extra: 'really long information that you ACTUALLY want' },
+          { ignoreSizeLimit: true }
+        )
+        assert.isTrue(mockLogMethod.called)
+        assert.equal(
+          mockLogMethod.firstCall.args[0].extra,
+          'really long information that you ACTUALLY want'
+        )
+      })
+
       it('should filter logs below log level', () => {
         const { context, logger, mockLogMethod } = _getMockLogger({
           config: {

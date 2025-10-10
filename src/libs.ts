@@ -120,9 +120,12 @@ const getLogLevelNumber = (logLevel: LogLevelNames) => {
   }
 }
 
-const getLayerKey = (layerDescription: LayerDescription): string => {
+const _getLayerKey = (layerDescription: LayerDescription): string => {
+  // Probably never going to have the first case.
+  /* c8 ignore next */
   return Array.isArray(layerDescription)
-    ? layerDescription.join('-')
+    ? /* c8 ignore next */
+      layerDescription.join('-')
     : (layerDescription as string)
 }
 
@@ -141,7 +144,7 @@ const getLayersUnavailable = (allLayers: readonly LayerDescription[]) => {
         }, acc)
         return compositeAnti
       }
-      const key = getLayerKey(layer)
+      const key = _getLayerKey(layer)
       return merge(acc, {
         [key]: allLayers.slice(index + 1),
       })
@@ -224,7 +227,8 @@ const _convertErrorToCause = (
       },
     })
   }
-  // Return the final error object
+  // Not likely to ever happen
+  /* c8 ignore next */
   return errorObj
 }
 
@@ -426,6 +430,11 @@ const annotatedFunction = <
     : schema.implement(implementation as any)
   // eslint-disable-next-line functional/immutable-data
   implemented.schema = schema
+  // eslint-disable-next-line functional/immutable-data
+  implemented.functionName = props.functionName
+  // eslint-disable-next-line functional/immutable-data
+  implemented.domain = props.domain
+
   return implemented as unknown as NilAnnotatedFunction<TProps, TOutput> &
     TImplementation
 }

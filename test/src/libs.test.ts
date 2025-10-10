@@ -26,6 +26,13 @@ import {
 
 describe('/src/libs.ts', () => {
   describe('#combineCrossLayerProps()', () => {
+    it('should combine when A has no logging, and B has logging', () => {
+      const a = {}
+      const b = {}
+      const expected = { logging: { ids: [] } }
+      const actual = combineCrossLayerProps(a, b)
+      assert.deepEqual(actual, expected)
+    })
     it('should combine cross layer props', () => {
       const a = {
         logging: {
@@ -344,6 +351,36 @@ describe('/src/libs.ts', () => {
       )
       const res = fn({})
       assert.isUndefined(res)
+    })
+    it('should support adding a functionName', () => {
+      const fn = annotatedFunction(
+        {
+          functionName: 'myFunction',
+          domain: 'myDomain',
+          args: z.object({ myArgument: z.string() }),
+        },
+        (_args: any) => {
+          return undefined
+        }
+      )
+      const actual = fn.functionName
+      const expected = 'myFunction'
+      assert.equal(actual, expected)
+    })
+    it('should support adding a domain', () => {
+      const fn = annotatedFunction(
+        {
+          functionName: 'myFunction',
+          domain: 'myDomain',
+          args: z.object({ myArgument: z.string() }),
+        },
+        (_args: any) => {
+          return undefined
+        }
+      )
+      const actual = fn.domain
+      const expected = 'myDomain'
+      assert.equal(actual, expected)
     })
   })
   describe('#createErrorObject()', () => {

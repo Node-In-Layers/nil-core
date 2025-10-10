@@ -9,26 +9,22 @@ const _setup = async () => {
     create: sinon.stub().returns({}),
   }
   const globalFeatures = {
-    create: sinon
-      .stub()
-      .returns({
-        loadGlobals: async () => ({
-          config: { '@node-in-layers/core': { apps: [] } },
-        }),
+    create: sinon.stub().returns({
+      loadGlobals: async () => ({
+        config: { '@node-in-layers/core': { apps: [] } },
       }),
+    }),
   }
   const layersServices = {
     create: sinon.stub().returns({}),
   }
   const layersFeatures = {
-    create: sinon
-      .stub()
-      .returns({
-        loadLayers: async () => ({
-          services: { '@node-in-layers/core': {} },
-          other: 1,
-        }),
+    create: sinon.stub().returns({
+      loadLayers: async () => ({
+        services: { '@node-in-layers/core': {} },
+        other: 1,
       }),
+    }),
   }
   const module = await esmock('../../src/entries.js', {
     '../../src/globals/index': {

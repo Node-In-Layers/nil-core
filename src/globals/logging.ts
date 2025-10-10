@@ -380,8 +380,9 @@ const _subLogger = <TConfig extends Config = Config>(
       const { value: data } = safeJson(
         merge({}, props.data, isError ? {} : dataOrError)
       )
+
       const theData = options?.ignoreSizeLimit
-        ? data || {}
+        ? data
         : capForLogging(
             data,
             context.config[CoreNamespace.root].logging.maxLogSizeInCharacters
