@@ -977,4 +977,5 @@ export {
   XOR,
   TrueMaybePromise,
   AnnotatedFunctionProps,
+  NilFunctionReturn
 }
