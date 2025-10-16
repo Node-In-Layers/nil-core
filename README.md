@@ -11,10 +11,8 @@ Rapid, batteries included, opinionated web development with functional node.
 
 - REST Backend (Model/Controller)
 - Fully featured ORM database system inspired by Django, with support for opensearch, mongo, dynamodb, postgres, sqlite and mysql
-- Auth System (username/password, LDAP, and OAUTH) - (soon)
-- Openapi Spec API Client Builder - (soon)
-- React frontend admin management (soon)
-- React frontend system (soon)
+- Can be used on Backends, Frontends, and SDK/Clients.
+- AI MCP Ready. (Check out our MCP development server below)
 
 ## IONSH Opinions
 
@@ -603,7 +601,7 @@ The biggest reason for this is performance.
 ## Annotated Functions
 
 Node-in-layers provides a function `annotatedFunction()` that is extremely useful for building consumable living APIs.
-This functionality is heavily recommended for feature level exported functions, or higher.
+This functionality is heavily recommended for feature level functions.
 
 This function AUTOMATICALLY accounts for crossLayerProps as a last optional argument to the function as well that the output could be the type you describe OR an ErrorObject type.
 
@@ -616,6 +614,8 @@ import { annotatedFunction, isErrorObject } from '@node-in-layers/core'
 const create = (context: FeaturesContext<Config, MyServicesContext>) => {
   const hello = annotatedFunction(
     {
+      functionName: 'hello',
+      domain: 'myDomain',
       description:
         'This is my function, there are many like it, but this one is mine.',
       args: z.object({
@@ -655,3 +655,24 @@ console.info(result.output) // "Hello World"
 ```
 
 NOTE: The reason why an object is enforced for input AND output, is it sets up a layer function to be exported and described in an OpenAPI format, or exported via an AI MCP layer.
+
+# MCP Development Server
+
+Node In Layers Core ships with an MCP server for AI based development. It provides knowledge entries for the AI to have specific examples of how to work with and manipulate a Node In Layers system. This GREATLY increases the accuracy and understanding of AI working with these systems, making it really easy to add new features, refactor, and make the best use of features.
+
+## Quick Start
+
+You can setup the server by setting up Cursor (or similar) with this configuration.
+
+```json
+{
+  "mcpServers": {
+    "node-in-layers-core": {
+      "command": "npx",
+      "args": ["-y", "@node-in-layers/core-knowledge-mcp"]
+    }
+  }
+}
+```
+
+You can learn more about this here [Knowledge MCP](./knowledge-mcp/README.md)

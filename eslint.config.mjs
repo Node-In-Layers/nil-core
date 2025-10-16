@@ -21,6 +21,7 @@ const compat = new FlatCompat({
 export default [
   {
     ignores: [
+      'knowledge-mcp',
       'config.*.mjs',
       'coverage/',
       'dist/',

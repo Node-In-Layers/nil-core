@@ -1,14 +1,15 @@
 {
   "name": "@node-in-layers/core",
   "type": "module",
-  "version": "1.10.9",
+  "version": "1.10.10",
   "description": "The core library for the Node In Layers rapid web development framework.",
   "main": "index.js",
   "scripts": {
     "build": "rm -Rf ./dist && tsc -p ./tsconfig.json && cp package.json ./dist && cp README.md ./dist",
     "build:watch": "nodemon -e '*' --watch ./src --exec npm run build",
     "commit": "cz",
-    "dist": "npm run build && cd dist && npm publish",
+    "prepare": "npm run build",
+    "dist": "npm run build && cd dist && npm publish && cd ./knowledge-mcp && npm run dist",
     "eslint": "eslint .",
     "prettier": "prettier --write .",
     "prettier:check": "prettier -c .",
@@ -83,7 +84,7 @@
   "dependencies": {
     "async-lock": "^1.4.1",
     "axios": "^1.7.9",
-    "functional-models": "^3.6.0",
+    "functional-models": "^3.6.1",
     "import-meta-resolve": "^4.1.0",
     "lodash": "^4.17.21",
     "loglevel": "^1.9.2",
