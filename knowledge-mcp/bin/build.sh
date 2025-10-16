@@ -24,7 +24,6 @@ fs.writeFileSync('./dist/package.json', JSON.stringify(mcpPkg, null, 2));
 NODE
 cp README.md ./dist
 cp -R ./bin/ ./dist/
-cp ./config.prod.mjs ./dist/
 rm ./dist/bin/build.sh
 
 sed -i -e 's/..\/dist\//..\//g' ./dist/bin/mcp_server.js

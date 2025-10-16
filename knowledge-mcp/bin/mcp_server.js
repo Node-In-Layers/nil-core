@@ -3,7 +3,7 @@
 import esMain from 'es-main'
 import { ArgumentParser } from 'argparse'
 import * as core from '@node-in-layers/core'
-import * as config from '../dist/config.prod.mjs'
+import { default as config } from '../dist/config.js'
 
 const _parseArguments = () => {
   const parser = new ArgumentParser({
@@ -15,7 +15,7 @@ const _parseArguments = () => {
 const startServer = async () => {
   const context = await core.loadSystem({
     environment: 'prod',
-    config: config.default(),
+    config: await config(),
   })
   await context.mcp.mcp.start()
 }
