@@ -10,6 +10,9 @@
     "build:watch": "nodemon -e '*' --watch ./src --exec ./bin/build.sh",
     "dist": "npm run build && cd dist && npm publish"
   },
+  "bin": {
+    "nil-core-knowledge-mcp": "./bin/mcp_server.js"
+  },
   "dependencies": {
     "@node-in-layers/core": "file:..",
     "@node-in-layers/mcp-server": "^2.2.6",
