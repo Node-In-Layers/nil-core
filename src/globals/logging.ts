@@ -64,11 +64,14 @@ const consoleLogSimple = (logMessage: LogMessage) => {
   // eslint-disable-next-line functional/immutable-data
   const functionName = splitted.pop()
   // eslint-disable-next-line functional/immutable-data
+  const layerName = splitted.pop()
+  // eslint-disable-next-line functional/immutable-data
   const domainName = splitted.pop()
+
   // @ts-ignore
   // eslint-disable-next-line no-console
   console[logMessage.logLevel](
-    `${logMessage.datetime.toISOString()}: ${domainName}:${functionName} ${logMessage.message}`
+    `${logMessage.datetime.toISOString()}: ${domainName}:${layerName}:${functionName} ${logMessage.message}`
   )
 }
 
