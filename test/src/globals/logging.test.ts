@@ -66,14 +66,14 @@ describe('/src/globals/logging.ts', () => {
         datetime: new Date('2025-01-01T00:00:00Z'),
         logLevel: LogLevelNames.info,
         message: 'Test message',
-        logger: 'test',
+        logger: 'test:domain:function',
         environment: 'test',
       }
       consoleLogSimple(logMessage)
       assert.isTrue(consoleSpy.calledOnce)
       assert.equal(
         consoleSpy.firstCall.args[0],
-        '2025-01-01T00:00:00.000Z: Test message'
+        '2025-01-01T00:00:00.000Z: domain:function Test message'
       )
     })
   })
