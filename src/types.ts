@@ -468,9 +468,11 @@ type GenericLayer = Record<string, any>
  * @interface
  */
 type ModelProps<
+  TConfig extends Config = Config,
   TModelOverrides extends object = object,
   TModelInstanceOverrides extends object = object,
 > = Readonly<{
+  context: CommonContext<TConfig>
   Model: ModelFactory<TModelOverrides, TModelOverrides>
   fetcher: ModelInstanceFetcher<TModelOverrides, TModelInstanceOverrides>
   getModel: <T extends DataDescription>(

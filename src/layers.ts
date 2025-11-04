@@ -9,6 +9,7 @@ import {
   App,
   AppLayer,
   CommonContext,
+  Config,
   CoreNamespace,
   FeaturesContext,
   GenericLayer,
@@ -40,9 +41,11 @@ const CONTEXT_TO_SKIP = {
 const name = CoreNamespace.layers
 
 const modelGetter = <
+  TConfig extends Config = Config,
   TModelOverrides extends object = object,
   TModelInstanceOverrides extends object = object,
 >(
+  context: CommonContext<TConfig>,
   apps: readonly App[],
   modelProps: PartialModelProps
 ) => {
@@ -77,6 +80,7 @@ const modelGetter = <
     if (!(modelName in memoized)) {
       const func = memoizeValueSync(() =>
         modelConstructor.create<T, TModelOverrides, TModelInstanceOverrides>({
+          context,
           ...modelProps,
           getModel,
         })
@@ -93,17 +97,20 @@ const modelGetter = <
 const services = {
   create: (): LayerServices => {
     const getModelProps = <
+      TConfig extends Config = Config,
       TModelOverrides extends object = object,
       TModelInstanceOverrides extends object = object,
     >(
-      context: ServicesContext
+      context: ServicesContext<TConfig>
     ) => {
       const fetcher = DoNothingFetcher
       const modelGetterInstance = modelGetter<
+        TConfig,
         TModelOverrides,
         TModelInstanceOverrides
-      >(context.config[CoreNamespace.root].apps, { Model, fetcher })
+      >(context, context.config[CoreNamespace.root].apps, { Model, fetcher })
       return {
+        context,
         Model,
         fetcher,
         getModel: modelGetterInstance,
@@ -216,6 +223,7 @@ const features = {
                 }
 
                 const getModel = modelGetter(
+                  context,
                   context.config['@node-in-layers/core'].apps,
                   modelProps
                 )

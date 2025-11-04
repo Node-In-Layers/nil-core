@@ -324,7 +324,7 @@ describe('/src/globals/logging.ts', () => {
       await logger.info('Test')
       assert.equal(consoleSpy.callCount, 3)
       //assert.equal(consoleSpy.firstCall.args[0], `${new Date('2025-04-010Z').toISOString()}: Test`)
-      assert.match(consoleSpy.firstCall.args[0], /.*: Test/)
+      assert.match(consoleSpy.firstCall.args[0], /.*: root Test/)
       assert.match(consoleSpy.secondCall.args[0], /.* test info .*/)
       assert.isOk(consoleSpy.thirdCall.args[0])
       assert.isOk(axiosRequest.getCall(0).args[0])

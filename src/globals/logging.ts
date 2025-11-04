@@ -60,7 +60,7 @@ const _combineIds = (id: readonly LogId[]) => {
  * @param logMessage
  */
 const consoleLogSimple = (logMessage: LogMessage) => {
-  const splitted = logMessage.logger.split(':')
+  const splitted = (logMessage.logger || 'root').split(':')
   // eslint-disable-next-line functional/immutable-data
   const functionName = splitted.pop()
 
