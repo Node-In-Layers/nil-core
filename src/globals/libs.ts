@@ -118,6 +118,11 @@ const capForLogging = (input, maxSize = MAX_LOG_CHARACTERS) => {
   }
 }
 
+const trimTrailingUndefineds = (arr: any[]): any[] =>
+  arr.length === 0 || arr[arr.length - 1] !== undefined
+    ? arr
+    : trimTrailingUndefineds(arr.slice(0, arr.length - 1))
+
 const extractCrossLayerProps = (
   args: any[]
 ): [any[], CrossLayerProps | undefined] => {
@@ -125,14 +130,17 @@ const extractCrossLayerProps = (
     return [[], undefined]
   }
 
-  const lastArg = args[args.length - 1]
+  const trimmed = trimTrailingUndefineds(args)
 
-  if (isCrossLayerLoggingProps(lastArg)) {
-    // Return all args except the last one, and the last one as CrossLayerProps
-    return [args.slice(0, args.length - 1), lastArg]
+  if (trimmed.length < args.length) {
+    return [trimmed, undefined]
   }
-  // Return all args, and undefined for CrossLayerProps
-  return [args, undefined]
+
+  const lastArg = trimmed[trimmed.length - 1]
+  if (isCrossLayerLoggingProps(lastArg)) {
+    return [trimmed.slice(0, trimmed.length - 1), lastArg]
+  }
+  return [trimmed, undefined]
 }
 
 export {
