@@ -495,10 +495,11 @@ type PartialModelProps<
 
 /**
  * A function that can get model props from a services context.
+ * The last argument may be CrossLayerProps (same convention as LayerFunction).
  */
 type GetModelPropsFunc = (
   context: ServicesContext,
-  ...args: any[]
+  ...args: [...any[], CrossLayerProps]
 ) => PartialModelProps
 
 /**
