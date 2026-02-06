@@ -19,6 +19,7 @@ import {
   LayerServicesLayer,
   MaybePromise,
   ModelConstructor,
+  ModelProps,
   PartialModelProps,
   ServicesContext,
 } from './types.js'
@@ -210,7 +211,7 @@ const features = {
                     `Configuration requires that Model named ${modelName} receive a model props from ${custom}`
                   )
                 }
-                const modelProps = customModelProps
+                const partialModelProps: PartialModelProps = customModelProps
                   ? (customModelProps as GetModelPropsFunc)(
                       layerContext as ServicesContext,
                       // @ts-ignore (Cross layer props comes automatically)
@@ -226,13 +227,16 @@ const features = {
                 const getModel = modelGetter(
                   context,
                   context.config['@node-in-layers/core'].apps,
-                  modelProps
+                  partialModelProps
                 )
 
-                const instance = constructor.create({
-                  ...modelProps,
+                const modelProps: ModelProps = {
+                  context: layerContext,
+                  ...partialModelProps,
                   getModel,
-                })
+                }
+
+                const instance = constructor.create(modelProps)
                 return merge(acc, {
                   [modelName]: instance,
                 })
