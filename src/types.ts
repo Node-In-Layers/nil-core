@@ -499,7 +499,7 @@ type PartialModelProps<
  */
 type GetModelPropsFunc = (
   context: ServicesContext,
-  ...args: [...any[], CrossLayerProps]
+  ...args: any[]
 ) => PartialModelProps
 
 /**

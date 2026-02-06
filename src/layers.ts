@@ -213,6 +213,7 @@ const features = {
                 const modelProps = customModelProps
                   ? (customModelProps as GetModelPropsFunc)(
                       layerContext as ServicesContext,
+                      // @ts-ignore (Cross layer props comes automatically)
                       ...customArgs
                     )
                   : defaultModelProps
