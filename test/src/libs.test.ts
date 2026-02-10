@@ -393,8 +393,7 @@ describe('/src/libs.ts', () => {
       const err = new Error('boom')
       const actual = createErrorObject('E', 'm', err)
       assert.equal(actual.error.details, 'boom')
-      // @ts-ignore
-      assert.match(actual.error.errorDetails || '', /Error: boom/)
+      assert.equal(actual.error.cause?.error.message, 'boom')
     })
 
     it('should handle Error with nested cause', () => {

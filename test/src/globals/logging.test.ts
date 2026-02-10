@@ -522,8 +522,14 @@ describe('/src/globals/logging.ts', () => {
                   {
                     code: 'INTERNAL_ERROR',
                     details: 'Sync failure',
-                    errorDetails: 'Error: Sync failure',
                     message: 'Layer function features:myFunction',
+                    cause: {
+                      error: {
+                        code: 'CauseError',
+                        message: 'Sync failure',
+                        details: 'Sync failure',
+                      },
+                    },
                   },
                   'Expected error object'
                 )
@@ -622,8 +628,14 @@ describe('/src/globals/logging.ts', () => {
                   {
                     code: 'INTERNAL_ERROR',
                     details: 'Async failure',
-                    errorDetails: 'Error: Async failure',
                     message: 'Layer function features:myFunction',
+                    cause: {
+                      error: {
+                        code: 'CauseError',
+                        message: 'Async failure',
+                        details: 'Async failure',
+                      },
+                    },
                   },
                   'Expected error object'
                 )

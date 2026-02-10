@@ -264,7 +264,7 @@ const createErrorObject = (
     const errorDetails = {
       error: {
         details: error.message,
-        errorDetails: `${error}`,
+        cause: _convertErrorToCause(error, 'CauseError', error.message),
       },
     }
     // Add cause if available
@@ -380,10 +380,7 @@ export const errorObjectSchema = (): z.ZodType<ErrorObject> =>
       details: z.string().optional(),
       data: z.record(z.string(), z.any()).optional(),
       trace: z.string().optional(),
-      cause: z
-        .object({ error: z.any() })
-        .transform(val => ({ error: val.error }))
-        .optional() as unknown as z.ZodType<ErrorObject | undefined>,
+      cause: z.any().optional(),
     }),
   })
 
