@@ -408,12 +408,12 @@ const annotatedFunction = <
   const outputSchema = (() => {
     // No returns schema: assume void
     if (!props.returns) {
-      return z.union([z.void(), errorObjectSchema()]) as unknown as ZodType<
+      return z.xor([z.void(), errorObjectSchema()]) as unknown as ZodType<
         Response<void>
       >
     }
     // Build Response<returns> = returns | ErrorObject
-    return z.union([props.returns, errorObjectSchema()]) as unknown as ZodType<
+    return z.xor([props.returns, errorObjectSchema()]) as unknown as ZodType<
       Response<Exclude<TOutput, void>>
     >
   })()
