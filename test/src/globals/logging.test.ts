@@ -18,6 +18,7 @@ import {
   LogMessage,
 } from '../../../src/types.js'
 import { JsonObj } from 'functional-models'
+import { createErrorObject } from '../../../src/libs.js'
 
 // Utility to create a mock context
 const _getMockLogger = (context = undefined) => {
@@ -835,14 +836,16 @@ describe('/src/globals/logging.ts', () => {
     })
 
     describe('_isErrorObj', () => {
-      it('should log error object correctly', () => {
+      it.only('should log error object correctly', () => {
         const { context, logger, mockLogMethod } = _getMockLogger()
         const log = logger.getLogger(context)
-        log.error('Test', { error: new Error('Oops') })
-        assert.deepEqual(
-          mockLogMethod.firstCall.args[0].error,
+        const errorObj = createErrorObject(
+          'INTERNAL_ERROR',
+          'Unknown error',
           new Error('Oops')
         )
+        log.error('Test', errorObj)
+        assert.deepEqual(mockLogMethod.firstCall.args[0].error, errorObj.error)
       })
     })
 

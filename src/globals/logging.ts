@@ -393,10 +393,14 @@ const _subLogger = <TConfig extends Config = Config>(
       if (_shouldIgnore(theLogLevel, logLevel)) {
         return undefined
       }
+      const dataOrErrorObj =
+        typeof dataOrError === 'object' && dataOrError instanceof Error
+          ? createErrorObject('INTERNAL_ERROR', 'Unknown error', dataOrError)
+          : dataOrError
       const funcs = getLogMethods.map(x => x(context))
-      const isError = isErrorObject(dataOrError)
+      const isError = isErrorObject(dataOrErrorObj)
       const { value: data } = safeJson(
-        merge({}, props.data, isError ? {} : dataOrError)
+        merge({}, props.data, isError ? {} : dataOrErrorObj)
       )
 
       const theData = options?.ignoreSizeLimit
@@ -413,7 +417,7 @@ const _subLogger = <TConfig extends Config = Config>(
         message,
         ids: props.ids,
         logger: props.names.join(':'),
-        ...(isError ? { error: dataOrError.error } : {}),
+        ...(isError ? { error: dataOrErrorObj.error } : {}),
         ...theData,
         ...omit(props, ['ids', 'names', 'data', 'error']),
       }

@@ -25,6 +25,86 @@ import {
 } from '../../src'
 
 describe('/src/libs.ts', () => {
+  describe('#isErrorObject()', () => {
+    it('should return true when its an actual ErrorObject', () => {
+      const errorObj = createErrorObject('CODE', 'msg')
+      assert.isTrue(isErrorObject(errorObj))
+    })
+    it('should return false if null is passed in', () => {
+      // @ts-ignore
+      assert.isFalse(isErrorObject(null))
+    })
+    it('should return false if an object is passed in with "error" but its null', () => {
+      // @ts-ignore
+      assert.isFalse(isErrorObject({ error: null }))
+    })
+    it('should return false if undefined is passed in', () => {
+      // @ts-ignore
+      assert.isFalse(isErrorObject(undefined))
+    })
+    it('should return false if an object is passed in with "error" but its undefined', () => {
+      // @ts-ignore
+      assert.isFalse(isErrorObject({ error: undefined }))
+    })
+    it('should return false if an object is passed in with "error" but its not an object', () => {
+      // @ts-ignore
+      assert.isFalse(isErrorObject({ error: 'not-an-object' }))
+    })
+    it('should return false if an object is passed in with "error" but its not a string', () => {
+      // @ts-ignore
+      assert.isFalse(isErrorObject({ error: 123 }))
+    })
+    it('should return false if an empty object is passed into error', () => {
+      // @ts-ignore
+      assert.isFalse(isErrorObject({ error: {} }))
+    })
+    it('should return false if everything is present but not code', () => {
+      const input = {
+        error: {
+          message: 'msg',
+          details: 'details',
+          data: { a: 1 },
+          trace: 'trace',
+          cause: {
+            error: {
+              code: 'CODE',
+              message: 'msg',
+            },
+          },
+        },
+      }
+      const actual = isErrorObject(input)
+      assert.isFalse(actual)
+    })
+    it('should return false if everything is present but not message', () => {
+      const input = {
+        error: {
+          code: 'CODE',
+          details: 'details',
+          data: { a: 1 },
+          trace: 'trace',
+          cause: {
+            error: {
+              code: 'CODE',
+              message: 'msg',
+            },
+          },
+        },
+      }
+      const actual = isErrorObject(input)
+      assert.isFalse(actual)
+    })
+    it('should return true if only code and message are present', () => {
+      const input = {
+        error: {
+          code: 'CODE',
+          message: 'msg',
+        },
+      }
+      const actual = isErrorObject(input)
+      assert.isTrue(actual)
+    })
+  })
   describe('#combineCrossLayerProps()', () => {
     it('should combine when A has no logging, and B has logging', () => {
       const a = {}

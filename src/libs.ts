@@ -347,12 +347,23 @@ const createErrorObject = (
 }
 
 const isErrorObject = (value: unknown): value is ErrorObject => {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'error' in value &&
-    typeof value.error === 'object'
-  )
+  if (!value) {
+    return false
+  }
+  const error = get(value, 'error')
+  if (!error) {
+    return false
+  }
+  if (typeof error !== 'object' || error === null) {
+    return false
+  }
+  if (!('code' in error)) {
+    return false
+  }
+  if (!('message' in error)) {
+    return false
+  }
+  return true
 }
 
 const combineCrossLayerProps = (
