@@ -1,0 +1,5 @@
+{
+  "name": "@node-in-layers/core",
+  "description": "The core library for @node-in-layer/systems",
+  "isPackage": true
+}

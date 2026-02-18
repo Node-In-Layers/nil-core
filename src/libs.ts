@@ -60,6 +60,16 @@ const _getNamespaceProperty = (namespace: CoreNamespace, property: string) => {
   return `${namespace}.${property}`
 }
 
+const _logFormatIsArrayOrString = () => (config: Partial<Config>) => {
+  const logFormat = get(
+    config,
+    _getNamespaceProperty(CoreNamespace.root, 'logging.logFormat')
+  )
+  if (!Array.isArray(logFormat) && typeof logFormat !== 'string') {
+    throw new Error('logFormat must be an array or a string')
+  }
+}
+
 const _configItemsToCheck: readonly ((config: Partial<Config>) => void)[] = [
   configHasKey('environment'),
   configHasKey('systemName'),
@@ -72,10 +82,7 @@ const _configItemsToCheck: readonly ((config: Partial<Config>) => void)[] = [
     _getNamespaceProperty(CoreNamespace.root, 'logging.logLevel'),
     'string'
   ),
-  configItemIsType(
-    _getNamespaceProperty(CoreNamespace.root, 'logging.logFormat'),
-    'string'
-  ),
+  _logFormatIsArrayOrString(),
 ]
 
 const validateConfig = (config: Partial<Config>) => {
@@ -194,32 +201,50 @@ const DoNothingFetcher: ModelInstanceFetcher = (
 const _convertErrorToCause = (
   error: Error,
   code: string,
-  message: string
+  message?: string
 ): ErrorObject => {
-  // Build the error details object
-  const errorObj = {
+  // Prefer an explicit message if provided, then the error's own message/name
+  const baseMessage = message || error.message || (error as any).name || code
+
+  // Prefer stack for details when available; fall back to a concise string form
+  const baseDetails =
+    error.stack ||
+    `${(error as any).name || 'Error'}: ${error.message || String(error)}`
+
+  // Start with a basic error object
+  const errorObj: ErrorObject = {
     error: {
       code,
-      message: message || error.message,
+      message: baseMessage,
+      details: baseDetails,
     },
   }
 
-  // Add details from the error
-  if (error.message) {
+  // Special handling for AggregateError (Node / JS aggregate errors)
+  const aggregateErrors = get(error, 'errors', []) as Error[]
+  if (Array.isArray(aggregateErrors) && aggregateErrors.length > 0) {
+    const innerSummaries = aggregateErrors.map(e => {
+      if (e instanceof Error) {
+        return e.stack || `${e.name}: ${e.message || String(e)}`
+      }
+      return String(e)
+    })
+
+    const innerDetails = `Inner errors:\n${innerSummaries.join('\n')}`
     return merge({}, errorObj, {
       error: {
-        details: error.message,
+        details: `${baseDetails}\n${innerDetails}`,
+        data: {
+          ...(errorObj.error as any).data,
+          aggregateErrors: innerSummaries,
+        },
       },
     })
   }
 
   // Handle nested cause if available
   if (error.cause) {
-    const causeObj = _convertErrorToCause(
-      error.cause as Error,
-      'NestedError',
-      (error.cause as Error).message
-    )
+    const causeObj = _convertErrorToCause(error.cause as Error, 'NestedError')
 
     return merge({}, errorObj, {
       error: {
@@ -264,7 +289,7 @@ const createErrorObject = (
     const errorDetails = {
       error: {
         details: error.message,
-        cause: _convertErrorToCause(error, 'CauseError', error.message),
+        cause: _convertErrorToCause(error, 'CauseError'),
       },
     }
     // Add cause if available
@@ -322,7 +347,12 @@ const createErrorObject = (
 }
 
 const isErrorObject = (value: unknown): value is ErrorObject => {
-  return typeof value === 'object' && value !== null && 'error' in value
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'error' in value &&
+    typeof value.error === 'object'
+  )
 }
 
 const combineCrossLayerProps = (

@@ -1,13 +1,16 @@
 import omit from 'lodash/omit.js'
 import * as globalsApp from './globals/index.js'
 import * as layersApp from './layers.js'
+import * as otelApp from './otel/index.js'
 import { Config, CoreNamespace } from './types.js'
+import { isPromise } from './utils.js'
 
 /**
  * Loads a node in layers system.
  * 1. Reads the configuration (if not provided).
  * 2. Loads globals
- * 3. Loads all layers
+ * 3. Sets up OTel (if configured) and merges otel services into context
+ * 4. Loads all layers
  * @param args - The required arguments.
  */
 const loadSystem = async <TConfig extends Config = Config>(args: {
@@ -29,12 +32,21 @@ const loadSystem = async <TConfig extends Config = Config>(args: {
     args.config || args.environment
   )
 
+  const otelServices = otelApp.services.create(
+    globals as Parameters<typeof otelApp.services.create>[0]
+  )
+  const setupResult = otelServices.setupOtel()
+  if (isPromise(setupResult)) {
+    await setupResult
+  }
+
   const layersServices = layersApp.services.create()
-  // @ts-ignore
+  // @ts-ignore - services includes layers + otel; layer context types do not declare otel
   const layersFeatures = layersApp.features.create({
     ...globals,
     services: {
       [layersApp.name]: layersServices,
+      [otelApp.name]: otelServices,
     },
   })
   const layers = await layersFeatures.loadLayers()

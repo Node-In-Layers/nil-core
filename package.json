@@ -1,7 +1,7 @@
 {
   "name": "@node-in-layers/core",
   "type": "module",
-  "version": "1.12.4",
+  "version": "1.12.8",
   "description": "The core library for the Node In Layers rapid web development framework.",
   "main": "index.js",
   "scripts": {
@@ -14,7 +14,10 @@
     "prettier:check": "prettier -c .",
     "test": "mocha -r tsx ./test/src/*.test.ts ./test/mocha/src/**/*.test.ts ./test/mocha/src/**/**/*.test.ts",
     "test:coverage": "c8 --all --reporter cobertura --reporter text --reporter lcov --reporter html npm run test",
-    "test:features": "./node_modules/.bin/cucumber-js -p default"
+    "test:features1": "./node_modules/.bin/cucumber-js -p default",
+    "test:features2": "TS_NODE_PROJECT=tsconfig.cucumber.json ./node_modules/.bin/cucumber-js --require ./features/steps/steps.ts --require-module ts-node/register",
+    "test:features": "NODE_OPTIONS='--import tsx' ./node_modules/.bin/cucumber-js",
+    "test:features:collector": "bash ./bin/features.sh"
   },
   "config": {
     "commitizen": {
@@ -44,6 +47,10 @@
     "@eslint/compat": "^1.2.0",
     "@eslint/eslintrc": "^3.1.0",
     "@eslint/js": "^9.12.0",
+    "@opentelemetry/exporter-logs-otlp-http": "^0.212.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.212.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.212.0",
+    "@opentelemetry/sdk-node": "^0.212.0",
     "@types/chai-as-promised": "^8.0.1",
     "@types/json-stringify-safe": "^5.0.3",
     "@types/lodash": "^4.17.13",
@@ -80,15 +87,17 @@
     "tsx": "^4.19.2",
     "typescript": "5.3.3"
   },
+  "optionalDependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/api-logs": "^0.52.0"
+  },
   "dependencies": {
     "async-lock": "^1.4.1",
     "axios": "^1.7.9",
     "functional-models": "^3.6.4",
-    "import-meta-resolve": "^4.1.0",
     "lodash": "^4.17.21",
     "loglevel": "^1.9.2",
     "modern-async": "^2.0.4",
-    "parent-module": "^3.1.0",
     "safe-json-value": "^3.0.1",
     "uuid": "^11.1.0",
     "zod": "^4.3.6"

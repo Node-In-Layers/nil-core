@@ -517,21 +517,32 @@ describe('/src/globals/logging.ts', () => {
                   'Function failed with an exception',
                   'Error message mismatch'
                 )
-                assert.deepEqual(
-                  calls[1].args[0].error,
-                  {
-                    code: 'INTERNAL_ERROR',
-                    details: 'Sync failure',
-                    message: 'Layer function features:myFunction',
-                    cause: {
-                      error: {
-                        code: 'CauseError',
-                        message: 'Sync failure',
-                        details: 'Sync failure',
-                      },
-                    },
-                  },
-                  'Expected error object'
+                const err = calls[1].args[0].error
+                assert.equal(err.code, 'INTERNAL_ERROR', 'error.code')
+                assert.equal(
+                  err.message,
+                  'Layer function features:myFunction',
+                  'error.message'
+                )
+                assert.ok(
+                  typeof err.details === 'string' &&
+                    err.details.startsWith('Sync failure'),
+                  'error.details should start with Sync failure'
+                )
+                assert.equal(
+                  err.cause?.error?.code,
+                  'CauseError',
+                  'cause.error.code'
+                )
+                assert.equal(
+                  err.cause?.error?.message,
+                  'Sync failure',
+                  'cause.error.message'
+                )
+                assert.ok(
+                  typeof err.cause?.error?.details === 'string' &&
+                    err.cause.error.details.startsWith('Error: Sync failure'),
+                  'cause.error.details should start with Error: Sync failure'
                 )
                 assert.instanceOf(e, Error, 'Expected an Error object')
                 assert.equal(
@@ -623,21 +634,32 @@ describe('/src/globals/logging.ts', () => {
                   'Function failed with an exception',
                   'Error message mismatch'
                 )
-                assert.deepEqual(
-                  calls[1].args[0].error,
-                  {
-                    code: 'INTERNAL_ERROR',
-                    details: 'Async failure',
-                    message: 'Layer function features:myFunction',
-                    cause: {
-                      error: {
-                        code: 'CauseError',
-                        message: 'Async failure',
-                        details: 'Async failure',
-                      },
-                    },
-                  },
-                  'Expected error object'
+                const err = calls[1].args[0].error
+                assert.equal(err.code, 'INTERNAL_ERROR', 'error.code')
+                assert.equal(
+                  err.message,
+                  'Layer function features:myFunction',
+                  'error.message'
+                )
+                assert.ok(
+                  typeof err.details === 'string' &&
+                    err.details.startsWith('Async failure'),
+                  'error.details should start with Async failure'
+                )
+                assert.equal(
+                  err.cause?.error?.code,
+                  'CauseError',
+                  'cause.error.code'
+                )
+                assert.equal(
+                  err.cause?.error?.message,
+                  'Async failure',
+                  'cause.error.message'
+                )
+                assert.ok(
+                  typeof err.cause?.error?.details === 'string' &&
+                    err.cause.error.details.startsWith('Error: Async failure'),
+                  'cause.error.details should start with Error: Async failure'
                 )
                 assert.instanceOf(e, Error, 'Expected an Error object')
                 assert.equal(

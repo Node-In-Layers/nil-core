@@ -30,6 +30,8 @@ import {
   LogInstanceOptions,
 } from '../types.js'
 import { memoizeValueSync } from '../utils.js'
+import { createOtelLogMethod } from '../otel/libs.js'
+import type { OtelServices } from '../otel/types.js'
 import {
   defaultGetFunctionWrapLogLevel,
   combineLoggingProps,
@@ -192,6 +194,8 @@ const _getLogMethodFromFormat = (
       return [() => consoleLogFull]
     case LogFormat.tcp:
       return [logTcp]
+    case LogFormat.otel:
+      return [createOtelLogMethod()]
     default:
       throw new Error(`LogFormat ${logFormat} is not supported`)
   }
@@ -255,54 +259,64 @@ const _layerLogger = <TConfig extends Config = Config>(
     return merge((...a: A) => {
       const [argsNoCrossLayer, crossLayer] = extractCrossLayerProps(a)
       const funcLogger = getFunctionLogger(functionName, crossLayer)
-      funcLogger[logLevel](`Executing ${layerName} function`, {
-        args: argsNoCrossLayer,
-      })
-      // eslint-disable-next-line functional/no-try-statements
-      try {
-        // @ts-ignore
-        const result = func(funcLogger, ...argsNoCrossLayer, {
-          logging: {
-            ids: funcLogger.getIds(),
-          },
+      const doWork = () => {
+        funcLogger[logLevel](`Executing ${layerName} function`, {
+          args: argsNoCrossLayer,
         })
-        // If a promise.
-        if (_isPromise(result)) {
-          return result
-            .then(r => {
-              funcLogger[logLevel](`Executed ${layerName} function`, {
-                result: r,
+        // eslint-disable-next-line functional/no-try-statements
+        try {
+          // @ts-ignore
+          const result = func(funcLogger, ...argsNoCrossLayer, {
+            logging: {
+              ids: funcLogger.getIds(),
+            },
+          })
+          if (_isPromise(result)) {
+            return result
+              .then(r => {
+                funcLogger[logLevel](`Executed ${layerName} function`, {
+                  result: r,
+                })
+                return r
               })
-              return r
-            })
-            .catch(e => {
-              funcLogger.error(
-                'Function failed with an exception',
-                createErrorObject(
-                  'INTERNAL_ERROR',
-                  `Layer function ${layerName}:${functionName}`,
-                  e
+              .catch(e => {
+                funcLogger.error(
+                  'Function failed with an exception',
+                  createErrorObject(
+                    'INTERNAL_ERROR',
+                    `Layer function ${layerName}:${functionName}`,
+                    e
+                  )
                 )
-              )
-              throw e
-            })
-        }
-        // If not a promise
-        funcLogger[logLevel](`Executed ${layerName} function`, {
-          result,
-        })
-        return result
-      } catch (e) {
-        funcLogger.error(
-          'Function failed with an exception',
-          createErrorObject(
-            'INTERNAL_ERROR',
-            `Layer function ${layerName}:${functionName}`,
-            e
+                throw e
+              })
+          }
+          funcLogger[logLevel](`Executed ${layerName} function`, {
+            result,
+          })
+          return result
+        } catch (e) {
+          funcLogger.error(
+            'Function failed with an exception',
+            createErrorObject(
+              'INTERNAL_ERROR',
+              `Layer function ${layerName}:${functionName}`,
+              e
+            )
           )
-        )
-        throw e
+          throw e
+        }
       }
+      const otel = get(context, `services.${CoreNamespace.otel}`) as
+        | OtelServices
+        | undefined
+      if (otel?.runWithTraceAndMetrics) {
+        return otel.runWithTraceAndMetrics(
+          { layerName, functionName, getIds: () => funcLogger.getIds() },
+          doWork
+        )
+      }
+      return doWork()
     }, func)
   }
 

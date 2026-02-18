@@ -100,6 +100,10 @@ enum LogFormat {
    * Logs messages over TCP. Must provide tcp options in logOptions
    */
   tcp = 'tcp',
+  /**
+   * Forwards log messages to the OpenTelemetry Logs API (e.g. when logging.otel is configured).
+   */
+  otel = 'otel',
   full = 'full',
 }
 
@@ -300,6 +304,15 @@ type LogInstanceOptions = Readonly<{
 }>
 
 /**
+ * A wrapper around an object that needs to be explicitly initialized before use.
+ */
+export type RequiresInitialization<T> = Readonly<{
+  isInitialized: () => boolean
+  getInstance: () => T
+  initialize: () => Promise<void>
+}>
+
+/**
  * A log object
  * @interface
  */
@@ -456,6 +469,7 @@ enum CoreNamespace {
   globals = '@node-in-layers/core/globals',
   layers = '@node-in-layers/core/layers',
   models = '@node-in-layers/core/models',
+  otel = '@node-in-layers/core/otel',
 }
 
 /**
@@ -556,6 +570,37 @@ type ModelToModelFactoryNamespace = Record<
 type NamespaceToFactory = Record<string, ModelToModelFactoryNamespace>
 
 /**
+ * OTLP or other exporter endpoint options for OpenTelemetry.
+ */
+type OtelExporterConfig = Readonly<{
+  endpoint?: string
+  headers?: Record<string, string>
+}>
+
+/**
+ * Per-signal (trace / logs / metrics) options for OpenTelemetry.
+ */
+type OtelSignalConfig = Readonly<{
+  enabled?: boolean
+  exporter?: OtelExporterConfig
+}>
+
+/**
+ * OpenTelemetry configuration. When absent, setupOtel() is a no-op. Enable per signal via trace/logs/metrics .enabled.
+ */
+type OtelConfig = Readonly<{
+  /** Service name sent to OTel (e.g. systemName or app name). */
+  serviceName?: string
+  /** Version for the OTel resource (optional). */
+  version?: string
+  trace?: OtelSignalConfig
+  logs?: OtelSignalConfig
+  metrics?: OtelSignalConfig
+  /** Shared exporter defaults (overridden by per-signal exporter). */
+  exporter?: OtelExporterConfig
+}>
+
+/**
  * The core configurations
  * @interface
  */
@@ -571,7 +616,7 @@ type CoreConfig = Readonly<{
     /**
      * The format of log messages. If multiple are included, then multiple logging approaches will be used.
      */
-    logFormat: LogFormat | readonly LogFormat[]
+    logFormat: XOR<LogFormat, ReadonlyArray<LogFormat>>
     /**
      * The maximum number of characters a log can be. NOTE: This is the count of any optional data properties,
      * and does NOT include any core fields. Defaults to 50,000
@@ -634,6 +679,10 @@ type CoreConfig = Readonly<{
       string,
       boolean | Record<string, Record<string, boolean> | boolean>
     >
+    /**
+     * OpenTelemetry configuration. When present, the otel domain can set up providers per signal (trace/logs/metrics). Enable per signal via .trace.enabled, .logs.enabled, .metrics.enabled.
+     */
+    otel?: OtelConfig
   }
   /**
    * The layers to be loaded, in their order.
@@ -880,7 +929,7 @@ type NilFunction<TProps extends JsonObj, TOutput extends XOR<JsonObj, void>> = (
  */
 type NilAnnotatedFunction<
   TProps extends JsonObj,
-  TOutput extends JsonObj | void,
+  TOutput extends XOR<JsonObj, void>,
 > = NilFunction<TProps, TOutput> &
   Readonly<{
     /**
@@ -906,7 +955,7 @@ type NilAnnotatedFunction<
  */
 type AnnotatedFunctionProps<
   TProps extends JsonObj,
-  TOutput extends JsonObj | void,
+  TOutput extends XOR<JsonObj, void>,
 > = {
   /**
    * The name of the function.
@@ -962,6 +1011,9 @@ export {
   LogMethod,
   LogId,
   CoreConfig,
+  OtelConfig,
+  OtelExporterConfig,
+  OtelSignalConfig,
   ErrorObject,
   CommonLayerName,
   CrossLayerProps,

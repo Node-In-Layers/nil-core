@@ -202,6 +202,126 @@ const create = context => {
 }
 ```
 
+## OpenTelemetry Support (optional)
+
+You can send the framework’s logs, spans, and metrics to OpenTelemetry so they show up in OTel-backed tools (Jaeger, Tempo, Elastic, etc.). The existing NIL tracing model (ids + `crossLayerProps`) stays the same; OTel is just another place to see it.
+
+### 1. Install OpenTelemetry APIs (required)
+
+NIL’s OTel integration talks to the OTel APIs; you bring the concrete SDK and exporters. At minimum you need:
+
+```bash
+npm install @opentelemetry/api @opentelemetry/api-logs
+```
+
+### 2. Install a Node SDK and exporters (Node backend example)
+
+For a typical Node backend that exports traces/logs/metrics over OTLP HTTP:
+
+```bash
+npm install \
+  @opentelemetry/sdk-node \
+  @opentelemetry/exporter-trace-otlp-http \
+  @opentelemetry/exporter-logs-otlp-http \
+  @opentelemetry/exporter-metrics-otlp-http
+```
+
+You can use any OTel setup (NodeSDK, manual providers, auto-instrumentation, etc.) as long as it registers global providers in your process.
+
+### 3. Configure core logging and explicitly wire exporters (config files)
+
+All OTel integration on the NIL side is driven by `config[CoreNamespace.root].logging`. You also own the lifecycle of your OTel SDK/exporters. A simple Node config might look like:
+
+```typescript
+// /config.base.mts
+import { CoreNamespace, LogFormat, LogLevelNames } from '@node-in-layers/core'
+import { NodeSDK } from '@opentelemetry/sdk-node'
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http'
+// Optional: add log / metric exporters as needed.
+// import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-http'
+// import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http'
+
+// Exported so it can be reused from other entrypoints if needed.
+export const setupOtel = () => {
+  const sdk = new NodeSDK({
+    traceExporter: new OTLPTraceExporter({
+      // Or read from env: OTEL_EXPORTER_OTLP_ENDPOINT, etc.
+      url:
+        process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT ??
+        'http://localhost:4318/v1/traces',
+    }),
+    // logsExporter: new OTLPLogExporter({}),
+    // metricReader: new PeriodicExportingMetricReader({
+    //   exporter: new OTLPMetricExporter({}),
+    // }),
+  })
+
+  // Start the SDK as part of your normal config/bootstrap path.
+  void sdk.start()
+  return sdk
+}
+
+export default () => {
+  // Ensure exporters are created as part of the normal setup process,
+  // rather than being implicitly created by NIL.
+  setupOtel()
+
+  return {
+    systemName: 'your-system-name',
+    [CoreNamespace.root]: {
+      logging: {
+        logLevel: LogLevelNames.info,
+
+        // Send logs both to console (JSON) and to OpenTelemetry
+        logFormat: [LogFormat.json, LogFormat.otel],
+
+        // OpenTelemetry settings for this system
+        otel: {
+          serviceName: 'your-system-name',
+          version: '1.0.0',
+
+          // Enable OTel logs (used by LogFormat.otel)
+          logs: { enabled: true },
+
+          // Optional: enable spans and metrics for wrapped layer functions
+          trace: { enabled: true },
+          metrics: { enabled: true },
+        },
+      },
+    },
+  }
+}
+```
+
+When `loadSystem()` runs, it:
+
+- Creates the OTel services domain.
+- Wires NIL’s internal OTel helpers based on `logging.otel`
+- Makes `context.services['@node-in-layers/core/otel']` available to layers (trace/metrics/logs helpers).
+
+### 4. What actually gets sent to OpenTelemetry
+
+- **Logs** (via `LogFormat.otel`):
+
+  - Every framework log is forwarded to OTel with:
+    - `body` = log message
+    - `severityNumber` / `severityText` mapped from NIL `logLevel`
+    - Attributes:
+      - `logger` (e.g. `domain:layer:function`)
+      - `environment`
+      - All ids from `logMessage.ids`, flattened into keys like `runtimeId`, `featureId`, `featureId-2`, `requestId`, `requestId-2`, etc.
+      - `error` when present
+
+- **Spans** (optional, via `runWithTraceAndMetrics`):
+
+  - NIL starts a span per wrapped layer function (name = `layer:function`).
+  - Span attributes include the same flattened ids (so your `functionCallId` etc. travel with the span).
+
+- **Metrics** (optional, via `runWithTraceAndMetrics`):
+  - Histograms `layer.function.duration` (ms) and counters `layer.function.calls`, with attributes `{ layer, function }`.
+
+Your OpenTelemetry SDK and exporters decide where this data goes (OTLP, vendor backend, etc.). NIL’s job is to forward structured logs/ids and layer identity into the OTel APIs, based purely on configuration.
+
 # Models
 
 Models in Node in Layers are a first class concept. What this means, is that many, if not most, systems are built around data, and therefore the use of Models is anticipated and made as easy as possible with Node In Layers.

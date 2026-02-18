@@ -1,0 +1,12 @@
+services:
+  node-in-layers-core-features-otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.102.0
+    restart: unless-stopped
+    command: ['--config=/etc/otel-collector-config.yaml']
+    volumes:
+      - ./features/configs/otel-collector-features.yaml:/etc/otel-collector-config.yaml:ro
+      - ./features/data/collector:/var/log/collector:rw
+    ports:
+      - '4317:4317' # OTLP gRPC
+      - '4318:4318' # OTLP HTTP
+

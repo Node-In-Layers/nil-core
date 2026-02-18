@@ -27,6 +27,7 @@ import { DoNothingFetcher, getLayersUnavailable } from './libs.js'
 import { memoizeValueSync } from './utils.js'
 import { createModelCruds } from './models/libs.js'
 import { ModelCrudsFunctions } from './models/types.js'
+import { OtelServicesLayer } from './otel/types.js'
 
 const CONTEXT_TO_SKIP = {
   _logging: true,
@@ -152,7 +153,10 @@ const isPromise = <T>(t: any): t is Promise<T> => {
 }
 
 const features = {
-  create: (context: CommonContext & LayerServicesLayer) => {
+  create: (
+    context: CommonContext &
+      LayerServicesLayer & { services: OtelServicesLayer }
+  ) => {
     type LayerRecord = Record<string, Record<string, object>>
 
     const _getLayerContext = (
@@ -328,9 +332,14 @@ const features = {
         })
       )
       const loggerIds = layerLogger.getIds()
-      const ignoreLayerFunctions =
+      const ignoreLayerFunctions = merge(
         commonContext.config[CoreNamespace.root].logging
-          ?.ignoreLayerFunctions || {}
+          ?.ignoreLayerFunctions || {},
+        {
+          // We want to always ignore OTEL functions for wrapping.
+          [`${CoreNamespace.otel}.services`]: true,
+        }
+      )
 
       const wrappedContext = Object.entries(layerContext).reduce(
         (acc, [layerKey, layerData]) => {
