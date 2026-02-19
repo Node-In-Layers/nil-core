@@ -5,7 +5,9 @@ import omit from 'lodash/omit.js'
 import {
   JsonObj,
   ModelInstanceFetcher,
+  OrmModel,
   PrimaryKeyType,
+  DataDescription,
 } from 'functional-models'
 import { wrap } from './utils.js'
 import {
@@ -22,17 +24,18 @@ import {
   Response,
   XOR,
   AnnotatedFunctionProps,
+  CommonContext,
 } from './types.js'
 
-const featurePassThrough = wrap
+export const featurePassThrough = wrap
 
-const configHasKey = (key: string) => (config: Partial<Config>) => {
+export const configHasKey = (key: string) => (config: Partial<Config>) => {
   if (get(config, key) === undefined) {
     throw new Error(`${key} was not found in config`)
   }
 }
 
-const configItemIsArray = (key: string) => (config: Partial<Config>) => {
+export const configItemIsArray = (key: string) => (config: Partial<Config>) => {
   if (Array.isArray(get(config, key)) === false) {
     throw new Error(`${key} must be an array`)
   }
@@ -85,11 +88,11 @@ const _configItemsToCheck: readonly ((config: Partial<Config>) => void)[] = [
   _logFormatIsArrayOrString(),
 ]
 
-const validateConfig = (config: Partial<Config>) => {
+export const validateConfig = (config: Partial<Config>) => {
   _configItemsToCheck.forEach(x => x(config))
 }
 
-const getLogLevelName = (logLevel: LogLevel) => {
+export const getLogLevelName = (logLevel: LogLevel) => {
   switch (logLevel) {
     case LogLevel.TRACE:
       return 'TRACE'
@@ -108,7 +111,7 @@ const getLogLevelName = (logLevel: LogLevel) => {
   }
 }
 
-const getLogLevelNumber = (logLevel: LogLevelNames) => {
+export const getLogLevelNumber = (logLevel: LogLevelNames) => {
   switch (logLevel) {
     case LogLevelNames.trace:
       return LogLevel.TRACE
@@ -136,7 +139,9 @@ const _getLayerKey = (layerDescription: LayerDescription): string => {
     : (layerDescription as string)
 }
 
-const getLayersUnavailable = (allLayers: readonly LayerDescription[]) => {
+export const getLayersUnavailable = (
+  allLayers: readonly LayerDescription[]
+) => {
   const layerToChoices: Record<string, string[]> = allLayers.reduce(
     (acc, layer, index) => {
       const antiLayers = allLayers.slice(index + 1)
@@ -167,7 +172,7 @@ const getLayersUnavailable = (allLayers: readonly LayerDescription[]) => {
   }
 }
 
-const isConfig = <TConfig extends Config>(obj: any): obj is TConfig => {
+export const isConfig = <TConfig extends Config>(obj: any): obj is TConfig => {
   if (typeof obj === 'string') {
     return false
   }
@@ -176,15 +181,21 @@ const isConfig = <TConfig extends Config>(obj: any): obj is TConfig => {
   )
 }
 
-const getNamespace = (packageName: string, app?: string) => {
-  if (app) {
-    return `${packageName}/${app}`
+/**
+ * @deprecated Creates a namespace string from a package name and domain name.
+ * @param packageName - The package name
+ * @param domain - The domain name
+ * @returns
+ */
+export const getNamespace = (packageName: string, domain?: string) => {
+  if (domain) {
+    return `${packageName}/${domain}`
   }
   return packageName
 }
 
 // @ts-ignore
-const DoNothingFetcher: ModelInstanceFetcher = (
+export const DoNothingFetcher: ModelInstanceFetcher = (
   model: any,
   primarykey: PrimaryKeyType
 ): Promise<PrimaryKeyType> => Promise.resolve(primarykey)
@@ -266,7 +277,7 @@ const _convertErrorToCause = (
  * @param error - Optional error object or details (can be any type - will be properly handled)
  * @returns A standardized error object conforming to the ErrorObject type
  */
-const createErrorObject = (
+export const createErrorObject = (
   code: string,
   message: string,
   error?: unknown
@@ -346,7 +357,7 @@ const createErrorObject = (
   })
 }
 
-const isErrorObject = (value: unknown): value is ErrorObject => {
+export const isErrorObject = (value: unknown): value is ErrorObject => {
   if (!value) {
     return false
   }
@@ -366,7 +377,7 @@ const isErrorObject = (value: unknown): value is ErrorObject => {
   return true
 }
 
-const combineCrossLayerProps = (
+export const combineCrossLayerProps = (
   crossLayerPropsA: CrossLayerProps,
   crossLayerPropsB: CrossLayerProps
 ) => {
@@ -431,7 +442,7 @@ export const errorObjectSchema = (): z.ZodType<ErrorObject> =>
  * @param implementation - Your function
  * @returns A function with a "schema" property
  */
-const annotatedFunction = <
+export const annotatedFunction = <
   TProps extends JsonObj,
   TOutput extends XOR<JsonObj, void>,
   TImplementation extends NilFunction<TProps, TOutput> = NilFunction<
@@ -482,25 +493,37 @@ const annotatedFunction = <
  * @param args - Arguments.
  * @returns An AnnotatedFunctionProps object.
  */
-const annotationFunctionProps = <
+export const annotationFunctionProps = <
   TProps extends JsonObj,
   TOutput extends JsonObj | void,
 >(
   args: AnnotatedFunctionProps<TProps, TOutput>
 ) => args
 
-export {
-  createErrorObject,
-  featurePassThrough,
-  getLogLevelName,
-  validateConfig,
-  getLayersUnavailable,
-  isConfig,
-  getNamespace,
-  DoNothingFetcher,
-  getLogLevelNumber,
-  isErrorObject,
-  combineCrossLayerProps,
-  annotatedFunction,
-  annotationFunctionProps,
+/**
+ * A helpful function for getting a model from a context.
+ * Very useful for services that need to get a model from their own domain.
+ * Throws an exception if the model is not found.
+ * @param context - The context
+ * @param domain - The domain of the model
+ * @param modelName - The PluralName(s) of the model
+ * @returns The model
+ */
+export const getModel = <TConfig extends Config, T extends DataDescription>(
+  context: CommonContext<TConfig>,
+  domain: string,
+  modelName: string
+): OrmModel<T> => {
+  const getter = get(
+    context,
+    `models.${domain}.getModels`
+  ) as unknown as () => Record<string, OrmModel<T>>
+  if (!getter) {
+    throw new Error(`Model ${modelName} not found in domain ${domain}`)
+  }
+  const model = getter()[modelName] as OrmModel<T>
+  if (!model) {
+    throw new Error(`Model ${modelName} not found in domain ${domain}`)
+  }
+  return model
 }
