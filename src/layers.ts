@@ -25,12 +25,12 @@ import {
 } from './types.js'
 import { DoNothingFetcher, getLayersUnavailable } from './libs.js'
 import { memoizeValueSync } from './utils.js'
-import { createModelCruds } from './models/internal-libs.js'
 import { ModelCrudsFunctions } from './models/types.js'
 import { OtelServicesLayer } from './otel/types.js'
 import {
   getForeignKeyProperty,
   getPrimaryKeyProperty,
+  createModelCruds,
 } from './models/internal-libs.js'
 
 const CONTEXT_TO_SKIP = {

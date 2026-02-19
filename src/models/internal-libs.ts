@@ -6,7 +6,6 @@ import {
   OrmSearchResult,
   PrimaryKeyType,
   ToObjectResult,
-  PropertyType,
   ForeignKeyProperty,
   ModelType,
   MaybeFunction,
@@ -14,41 +13,10 @@ import {
   DatabaseKeyPropertyConfig,
 } from 'functional-models'
 import merge from 'lodash/merge.js'
-import { createKeyModelName } from './libs.js'
-import {
-  CommonContext,
-  Config,
-  CoreNamespace,
-  ForeignKeyPropertyGetter,
-} from '../types.js'
+import { CommonContext, Config, ForeignKeyPropertyGetter } from '../types.js'
 import { memoizeValueSync } from '../utils.js'
+import { getPrimaryKeyDataType, getPrimaryKeyGenerator } from './libs.js'
 import { CrudsOptions, ModelCrudsFunctions } from './types.js'
-
-const _getPrimaryKeyConfig = <TConfig extends Config = Config>(
-  context: CommonContext<TConfig>,
-  domain: string,
-  name: string
-) => {
-  const modelNameToPrimaryKeyGenerator =
-    context.config[CoreNamespace.root].modelNameToPrimaryKeyGenerator || {}
-  const modelNameToIdPropertyType =
-    context.config[CoreNamespace.root].modelNameToIdPropertyType || {}
-  const keyModelName = createKeyModelName(domain, name)
-
-  const dataType = modelNameToIdPropertyType[keyModelName]
-    ? modelNameToIdPropertyType[keyModelName]
-    : context.config[CoreNamespace.root].modelIdPropertyType ||
-      PropertyType.UniqueId
-
-  const primaryKeyGenerator = modelNameToPrimaryKeyGenerator[keyModelName]
-    ? modelNameToPrimaryKeyGenerator[keyModelName]
-    : context.config[CoreNamespace.root].primaryKeyGenerator
-
-  return {
-    primaryKeyGenerator: primaryKeyGenerator,
-    dataType,
-  }
-}
 
 export const getPrimaryKeyProperty =
   <TConfig extends Config = Config>(context: CommonContext<TConfig>) =>
@@ -57,7 +25,8 @@ export const getPrimaryKeyProperty =
     modelPluralName: string,
     config?: DatabaseKeyPropertyConfig<T>
   ): ReturnType<typeof PrimaryKeyProperty<T>> => {
-    const { dataType, primaryKeyGenerator } = _getPrimaryKeyConfig(
+    const dataType = getPrimaryKeyDataType(context, domain, modelPluralName)
+    const primaryKeyGenerator = getPrimaryKeyGenerator(
       context,
       domain,
       modelPluralName
@@ -80,7 +49,7 @@ export const getForeignKeyProperty =
     model: MaybeFunction<ModelType<any>>,
     config?: Omit<DatabaseKeyPropertyConfig<T>, 'auto' | 'primaryKeyGenerator'>
   ) => {
-    const { dataType } = _getPrimaryKeyConfig(context, domain, modelPluralName)
+    const dataType = getPrimaryKeyDataType(context, domain, modelPluralName)
     return ForeignKeyProperty(
       model,
       merge({}, config, {

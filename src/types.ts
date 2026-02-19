@@ -9,8 +9,6 @@ import {
   PrimaryKeyType,
   PrimaryKeyGenerator,
   PrimaryKeyPropertyType,
-  PropertyInstance,
-  PropertyConfig,
   MaybeFunction,
   DatabaseKeyPropertyConfig,
   PrimaryKeyProperty,
