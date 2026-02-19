@@ -25,9 +25,13 @@ import {
 } from './types.js'
 import { DoNothingFetcher, getLayersUnavailable } from './libs.js'
 import { memoizeValueSync } from './utils.js'
-import { createModelCruds } from './models/libs.js'
+import { createModelCruds } from './models/internal-libs.js'
 import { ModelCrudsFunctions } from './models/types.js'
 import { OtelServicesLayer } from './otel/types.js'
+import {
+  getForeignKeyProperty,
+  getPrimaryKeyProperty,
+} from './models/internal-libs.js'
 
 const CONTEXT_TO_SKIP = {
   _logging: true,
@@ -85,6 +89,8 @@ const modelGetter = <
           context,
           ...modelProps,
           getModel,
+          getPrimaryKeyProperty: getPrimaryKeyProperty(context),
+          getForeignKeyProperty: getForeignKeyProperty(context),
         })
       )
       // We are doing a memoized state so we need this
@@ -116,6 +122,8 @@ const services = {
         Model,
         fetcher,
         getModel: modelGetterInstance,
+        getPrimaryKeyProperty: getPrimaryKeyProperty(context),
+        getForeignKeyProperty: getForeignKeyProperty(context),
       }
     }
 
@@ -238,6 +246,8 @@ const features = {
                   context: layerContext,
                   ...partialModelProps,
                   getModel,
+                  getPrimaryKeyProperty: getPrimaryKeyProperty(context),
+                  getForeignKeyProperty: getForeignKeyProperty(context),
                 }
 
                 const instance = constructor.create(modelProps)

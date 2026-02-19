@@ -1,6 +1,6 @@
 import { assert } from 'chai'
 import * as sinon from 'sinon'
-import { createModelCruds } from '../../../src/models/libs.js'
+import { createModelCruds } from '../../../src/models/internal-libs.js'
 import {
   DataDescription,
   OrmModel,
@@ -15,7 +15,7 @@ interface TestData extends DataDescription {
   name: string
 }
 
-describe('/src/modelCruds/libs.ts', () => {
+describe('/src/models/internal-libs.ts', () => {
   let modelStub: sinon.SinonStubbedInstance<OrmModel<TestData>>
   let instanceStub: sinon.SinonStubbedInstance<OrmModelInstance<TestData>>
 

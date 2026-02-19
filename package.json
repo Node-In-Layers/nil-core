@@ -1,7 +1,7 @@
 {
   "name": "@node-in-layers/core",
   "type": "module",
-  "version": "1.13.3",
+  "version": "1.13.4",
   "description": "The core library for the Node In Layers rapid web development framework.",
   "main": "index.js",
   "scripts": {
@@ -14,8 +14,6 @@
     "prettier:check": "prettier -c .",
     "test": "mocha -r tsx ./test/src/*.test.ts ./test/mocha/src/**/*.test.ts ./test/mocha/src/**/**/*.test.ts",
     "test:coverage": "c8 --all --reporter cobertura --reporter text --reporter lcov --reporter html npm run test",
-    "test:features1": "./node_modules/.bin/cucumber-js -p default",
-    "test:features2": "TS_NODE_PROJECT=tsconfig.cucumber.json ./node_modules/.bin/cucumber-js --require ./features/steps/steps.ts --require-module ts-node/register",
     "test:features": "NODE_OPTIONS='--import tsx' ./node_modules/.bin/cucumber-js",
     "test:features:collector": "bash ./bin/features.sh"
   },
@@ -94,7 +92,7 @@
   "dependencies": {
     "async-lock": "^1.4.1",
     "axios": "^1.7.9",
-    "functional-models": "^3.6.4",
+    "functional-models": "^3.8.2",
     "lodash": "^4.17.21",
     "loglevel": "^1.9.2",
     "modern-async": "^2.0.4",

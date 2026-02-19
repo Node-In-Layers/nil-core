@@ -836,7 +836,7 @@ describe('/src/globals/logging.ts', () => {
     })
 
     describe('_isErrorObj', () => {
-      it.only('should log error object correctly', () => {
+      it('should log error object correctly', () => {
         const { context, logger, mockLogMethod } = _getMockLogger()
         const log = logger.getLogger(context)
         const errorObj = createErrorObject(

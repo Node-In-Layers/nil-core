@@ -32,11 +32,27 @@ Node In Layers provides all of the frameworky stuff so that you can focus on the
 1. Cohesion
 1. Layers
 
-## Cohesive Apps
+## Cohesive Domains (formerly Apps)
 
-Similar to Python's Django or the Ruby on Rails framework, Node In Layers follows a cohesive "app" pattern. What this means, is that code is easy to find and understand where it goes, not just by its "categorical structural" nature (is this a model, view or controller?) but by what code it "belongs" near.
+Similar to Python's Django or the Ruby on Rails framework, Node In Layers follows a cohesive "domain" pattern. What this means, is that code is easy to find and understand where it goes, not just by its "categorical structural" nature (is this a model, view or controller?) but by what code it "belongs" near.
 
-An example is "auth". All code related to authentication and users, could go into an "app" called "auth". That way, if you want to know where authentication is happening, take a look at the "auth" layer.
+An example is "auth". All code related to authentication and users, could go into an "domain" called "auth". That way, if you want to know where authentication is happening, take a look at the "auth" layer.
+
+### Namespaces - The name of a domain.
+
+Domains can and should have simple names. Example: `auth`. However for package creators, consider using a namespace to group domains that are part of a package.
+A namespace is both a simple domain name, as well as a domain name that has a prefix with a package name on it.
+
+An example:
+
+```typescript
+// This is the name of this overall package, but it doesn't define a specific domain.
+const packageName = '@node-in-layers/core'
+
+// These are domains within the package itself.
+const abcDomain = '@node-in-layers/core/abc'
+const xyzDomain = '@node-in-layers/core/xyz'
+```
 
 ## Systemic Architecture
 
