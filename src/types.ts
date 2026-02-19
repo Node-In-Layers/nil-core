@@ -891,7 +891,17 @@ export type ServicesContext<
     /**
      * A services object.
      */
-    services: TServices
+    services: TServices & {
+      /**
+       * Advanced: This function will give you any initialized services object, AFTER loadSystem has been called.
+       * This is useful for situations where you need a service to be able to be configurable and access a domain AFTER this specific one has been loaded.
+       * @param domain The domain name.
+       * @returns The services object for the given domain
+       */
+      getServices: <TService extends Record<string, any>>(
+        domain: string
+      ) => TService | undefined
+    }
   } & TContext
 >
 
@@ -934,11 +944,33 @@ export type FeaturesContext<
     /**
      * Services
      */
-    services: TServices
+    services: TServices & {
+      /**
+       * Advanced: This function will give you any initialized services object, AFTER loadSystem has been called.
+       * This is useful for situations where you need a service to be able to be configurable and access a domain AFTER this specific one has been loaded.
+       * This MUST be used only within a function within the layer because at load time, it will be undefined.
+       * @param domain The domain name.
+       * @returns The services object for the given domain
+       */
+      getServices: <TService extends Record<string, any>>(
+        domain: string
+      ) => TService | undefined
+    }
     /**
      * Features
      */
-    features: TFeatures
+    features: TFeatures & {
+      /**
+       * Advanced: This function will give you any initialized features object, AFTER loadSystem has been called.
+       * This is useful for situations where you need a feature to be able to be configurable and access a domain AFTER this specific one has been loaded.
+       * This MUST be used only within a function within the layer because at load time, it will be undefined.
+       * @param domain The domain name.
+       * @returns The features object for the given domain
+       */
+      getFeatures: <TFeature extends Record<string, any>>(
+        domain: string
+      ) => TFeature | undefined
+    }
   } & TGlobals
 >
 

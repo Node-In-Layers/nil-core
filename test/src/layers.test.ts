@@ -469,6 +469,102 @@ const compositeLayersConfig1 = () => {
   }
 }
 
+const crossDomainServiceLookupConfig = () => {
+  const app1Services = {
+    create: sinon.stub().callsFake(context => ({
+      myFunc: (_args, crossLayerProps) => {
+        return context.services
+          .getServices('app2')
+          ['configuredFunction']('World', crossLayerProps)
+      },
+    })),
+  }
+
+  const app2Services = {
+    create: sinon.stub().returns({
+      configuredFunction: (name, _crossLayerProps) => {
+        return `Hello ${name}`
+      },
+    }),
+  }
+
+  const app1 = {
+    name: 'app1',
+    services: app1Services,
+  }
+
+  const app2 = {
+    name: 'app2',
+    services: app2Services,
+  }
+
+  return {
+    environment: 'unit-test',
+    systemName: 'nil-core',
+    [CoreNamespace.root]: {
+      apps: [app1, app2],
+      layerOrder: ['services', 'features'],
+      logging: {
+        logFormat: LogFormat.full,
+        logLevel: LogLevelNames.trace,
+      },
+    },
+  }
+}
+
+const crossDomainVisibilityConfig = () => {
+  const app1Services = {
+    create: sinon.stub().callsFake(context => ({
+      blowUpIfTryingToReadFeatures: () => {
+        // @ts-ignore
+        return context.features.getFeatures('app2')
+      },
+    })),
+  }
+
+  const app1Features = {
+    create: sinon.stub().callsFake(context => ({
+      callHigherService: (_args, crossLayerProps) => {
+        return context.services
+          .getServices('app2')
+          ['configuredFunction']('World', crossLayerProps)
+      },
+    })),
+  }
+
+  const app2Services = {
+    create: sinon.stub().returns({
+      configuredFunction: (name, _crossLayerProps) => {
+        return `Hello ${name}`
+      },
+    }),
+  }
+
+  const app1 = {
+    name: 'app1',
+    services: app1Services,
+    features: app1Features,
+  }
+
+  const app2 = {
+    name: 'app2',
+    services: app2Services,
+  }
+
+  return {
+    environment: 'unit-test',
+    systemName: 'nil-core',
+    [CoreNamespace.root]: {
+      apps: [app1, app2],
+      layerOrder: ['services', 'features'],
+      logging: {
+        logFormat: LogFormat.full,
+        logLevel: LogLevelNames.trace,
+      },
+    },
+  }
+}
+
 const _setup = (config?: Config) => {
   const logger = {
     info: sinon.stub(),
@@ -518,7 +614,6 @@ describe('/src/layers.ts', () => {
         const inputs = _setup(config)
         const instance = features.create(inputs)
         const context = await instance.loadLayers()
-        console.log(context.features.app1.myFeature)
         assert.isOk(context.features.app1.myFeature.schema)
       })
       it('should keep annotated functions intact through context', async () => {
@@ -538,15 +633,6 @@ describe('/src/layers.ts', () => {
         const instance = features.create(inputs)
         const context = await instance.loadLayers()
         await context.features.app1.myFeature()
-
-        //TODO: Check and validate, we have a bunch of wrappped callls.
-        console.log(
-          JSON.stringify(
-            inputs._logging.mockLogMethod.getCalls().map(x => x.args),
-            null,
-            2
-          )
-        )
       })
       it('should produce layerLogger than when it logs, it has the appName followed by the layerName', async () => {
         const config = customLayer1()
@@ -747,6 +833,31 @@ describe('/src/layers.ts', () => {
         const instance = features.create(inputs)
         const actual = await instance.loadLayers()
         assert.isOk(actual.services['fakeapp'])
+      })
+      it('should allow lower service domain to call higher service domain using getServices()', async () => {
+        const config = crossDomainServiceLookupConfig()
+        const inputs = _setup(config)
+        const instance = features.create(inputs)
+        const layers = await instance.loadLayers()
+        const actual = layers.services.app1.myFunc()
+        const expected = 'Hello World'
+        assert.deepEqual(actual, expected)
+      })
+      it('should allow features to call services using getServices()', async () => {
+        const config = crossDomainVisibilityConfig()
+        const inputs = _setup(config)
+        const instance = features.create(inputs)
+        const layers = await instance.loadLayers()
+        const actual = layers.features.app1.callHigherService()
+        const expected = 'Hello World'
+        assert.deepEqual(actual, expected)
+      })
+      it('should blow up when a service tries to call context.features.getFeatures()', async () => {
+        const config = crossDomainVisibilityConfig()
+        const inputs = _setup(config)
+        const instance = features.create(inputs)
+        const layers = await instance.loadLayers()
+        assert.throws(() => layers.services.app1.blowUpIfTryingToReadFeatures())
       })
       it('should load features for fakeapp', async () => {
         const inputs = _setup()

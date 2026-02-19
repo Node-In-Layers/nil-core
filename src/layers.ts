@@ -166,6 +166,58 @@ const features = {
       LayerServicesLayer & { services: OtelServicesLayer }
   ) => {
     type LayerRecord = Record<string, Record<string, object>>
+    const layerOrder = context.config[CoreNamespace.root].layerOrder
+    const orderedLayers = layerOrder.reduce<string[]>(
+      (acc, layer) =>
+        Array.isArray(layer)
+          ? acc.concat(layer as string[])
+          : acc.concat(layer as string),
+      []
+    )
+    const featuresLayerIndex = orderedLayers.indexOf('features')
+    // eslint-disable-next-line functional/no-let
+    let finalizedServicesDomains: Record<string, any> | undefined
+    // eslint-disable-next-line functional/no-let
+    let finalizedFeaturesDomains: Record<string, any> | undefined
+
+    const _canAccessFeatures = (layer: string): boolean => {
+      if (featuresLayerIndex === -1) {
+        return false
+      }
+      const layerIndex = orderedLayers.indexOf(layer)
+      return layerIndex >= featuresLayerIndex
+    }
+
+    const _getServices = <TService extends Record<string, any>>(
+      domain: string
+    ): TService | undefined => {
+      return finalizedServicesDomains?.[domain] as TService | undefined
+    }
+
+    const _getFeatures = <TFeature extends Record<string, any>>(
+      domain: string
+    ): TFeature | undefined => {
+      return finalizedFeaturesDomains?.[domain] as TFeature | undefined
+    }
+
+    const _addFinalizedDomainGetters = (
+      layerContext: LayerContext,
+      currentLayer: string
+    ): LayerContext => {
+      const withServices = merge({}, layerContext, {
+        services: {
+          getServices: _getServices,
+        },
+      })
+      if (!_canAccessFeatures(currentLayer)) {
+        return withServices
+      }
+      return merge({}, withServices, {
+        features: {
+          getFeatures: _getFeatures,
+        },
+      })
+    }
 
     const _getLayerContext = (
       commonContext: LayerContext,
@@ -182,6 +234,10 @@ const features = {
       currentLayer: string,
       layerContext: LayerContext
     ): LayerContext => {
+      const layerContextWithGetters = _addFinalizedDomainGetters(
+        layerContext,
+        currentLayer
+      )
       if (app.models) {
         // If this is services, we need to load models first if they exist
         if (currentLayer === 'services') {
@@ -192,7 +248,8 @@ const features = {
             context.config['@node-in-layers/core'].customModelFactory || {}
           const defaultMf =
             // @ts-ignore
-            layerContext.services[mfNamespace] || context.services[mfNamespace]
+            layerContextWithGetters.services[mfNamespace] ||
+            context.services[mfNamespace]
           if (!defaultMf) {
             throw new Error(
               `Namespace ${mfNamespace} does not have a services object`
@@ -206,7 +263,9 @@ const features = {
           const models: Record<string, ModelConstructor> = app.models
           // This function is added to the services context.
           const getModels = memoizeValueSync(() => {
-            const defaultModelProps = defaultMf.getModelProps(layerContext)
+            const defaultModelProps = defaultMf.getModelProps(
+              layerContextWithGetters
+            )
             const modelsObj = Object.entries(models).reduce(
               (acc, [modelName, constructor]) => {
                 // Do we have a custom model props for this?
@@ -215,8 +274,14 @@ const features = {
                 const customArgs = isCustomArray ? custom.slice(1) : []
                 const customModelProps = custom
                   ? isCustomArray
-                    ? get(layerContext, `services[${custom[0]}].getModelProps`)
-                    : get(layerContext, `services[${custom}].getModelProps`)
+                    ? get(
+                        layerContextWithGetters,
+                        `services[${custom[0]}].getModelProps`
+                      )
+                    : get(
+                        layerContextWithGetters,
+                        `services[${custom}].getModelProps`
+                      )
                   : undefined
                 if (custom && !customModelProps) {
                   throw new Error(
@@ -225,7 +290,7 @@ const features = {
                 }
                 const partialModelProps: PartialModelProps = customModelProps
                   ? (customModelProps as GetModelPropsFunc)(
-                      layerContext as ServicesContext,
+                      layerContextWithGetters as ServicesContext,
                       // @ts-ignore (Cross layer props comes automatically)
                       ...customArgs
                     )
@@ -243,7 +308,7 @@ const features = {
                 )
 
                 const modelProps: ModelProps = {
-                  context: layerContext,
+                  context: layerContextWithGetters,
                   ...partialModelProps,
                   getModel,
                   getPrimaryKeyProperty: getPrimaryKeyProperty(context),
@@ -270,7 +335,7 @@ const features = {
 
           return merge(
             {},
-            layerContext,
+            layerContextWithGetters,
             serviceCruds
               ? {
                   services: {
@@ -295,7 +360,9 @@ const features = {
           // We need to add the feature wrappers over service level wrappers.
           const serviceWrappers: [string, ModelCrudsFunctions<any>][] =
             // @ts-ignore
-            Object.entries(get(layerContext, `services.${app.name}.cruds`, {}))
+            Object.entries(
+              get(layerContextWithGetters, `services.${app.name}.cruds`, {})
+            )
           // @ts-ignore
           const featureWrappers = serviceWrappers.reduce(
             (acc, [name, cruds]) => {
@@ -308,7 +375,7 @@ const features = {
             {}
           )
 
-          return merge({}, layerContext, {
+          return merge({}, layerContextWithGetters, {
             features: {
               [app.name]: {
                 cruds: featureWrappers,
@@ -317,7 +384,7 @@ const features = {
           })
         }
       }
-      return layerContext
+      return layerContextWithGetters
     }
 
     const _loadLayer = async (
@@ -509,8 +576,10 @@ const features = {
         const theContext = Object.assign(theContext1, {
           log: layerLogger,
         })
-        // @ts-ignore
-        const layerContext = _getLayerContext(theContext, previousLayer)
+        const layerContext = _addFinalizedDomainGetters(
+          _getLayerContext(theContext as LayerContext, previousLayer),
+          layer
+        )
 
         const loggerIds = layerLogger.getIds()
         const ignoreLayerFunctions =
@@ -712,7 +781,13 @@ const features = {
               [LayerContext, LayerRecord]
             >
           )
-          return result[0] as FeaturesContext
+          const finalContext = _addFinalizedDomainGetters(
+            result[0] as LayerContext,
+            'features'
+          ) as FeaturesContext
+          finalizedServicesDomains = finalContext.services
+          finalizedFeaturesDomains = finalContext.features
+          return finalContext
         },
         Promise.resolve(startingContext) as Promise<FeaturesContext>
       ) as Promise<FeaturesContext>
