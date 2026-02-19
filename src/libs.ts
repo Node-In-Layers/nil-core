@@ -509,7 +509,7 @@ export const annotationFunctionProps = <
  * @param modelName - The PluralName(s) of the model
  * @returns The model
  */
-export const getModel = <TConfig extends Config, T extends DataDescription>(
+export const getModel = <T extends DataDescription, TConfig extends Config = Config>(
   context: CommonContext<TConfig>,
   domain: string,
   modelName: string
