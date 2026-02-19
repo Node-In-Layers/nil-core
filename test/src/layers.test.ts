@@ -565,6 +565,59 @@ const crossDomainVisibilityConfig = () => {
   }
 }
 
+const higherThanFeaturesLayerCanGetFeaturesConfig = () => {
+  const app1Services = {
+    create: sinon.stub().returns({}),
+  }
+
+  const app1Features = {
+    create: sinon.stub().returns({
+      configuredFunction: (name, _crossLayerProps) => {
+        return `Hello ${name}`
+      },
+    }),
+  }
+
+  const app2Services = {
+    create: sinon.stub().returns({}),
+  }
+
+  const app2CustomLayer = {
+    create: sinon.stub().callsFake(context => ({
+      callHigherFeature: (_args, crossLayerProps) => {
+        return context.features
+          .getFeatures('app1')
+          ['configuredFunction']('World', crossLayerProps)
+      },
+    })),
+  }
+
+  const app1 = {
+    name: 'app1',
+    services: app1Services,
+    features: app1Features,
+  }
+
+  const app2 = {
+    name: 'app2',
+    services: app2Services,
+    customLayer: app2CustomLayer,
+  }
+
+  return {
+    environment: 'unit-test',
+    systemName: 'nil-core',
+    [CoreNamespace.root]: {
+      apps: [app1, app2],
+      layerOrder: ['services', 'features', ['entries', 'customLayer']],
+      logging: {
+        logFormat: LogFormat.full,
+        logLevel: LogLevelNames.trace,
+      },
+    },
+  }
+}
+
 const _setup = (config?: Config) => {
   const logger = {
     info: sinon.stub(),
@@ -858,6 +911,15 @@ describe('/src/layers.ts', () => {
         const instance = features.create(inputs)
         const layers = await instance.loadLayers()
         assert.throws(() => layers.services.app1.blowUpIfTryingToReadFeatures())
+      })
+      it('should allow a higher-than-features layer to call getFeatures()', async () => {
+        const config = higherThanFeaturesLayerCanGetFeaturesConfig()
+        const inputs = _setup(config)
+        const instance = features.create(inputs)
+        const layers = await instance.loadLayers()
+        const actual = layers.customLayer.app2.callHigherFeature()
+        const expected = 'Hello World'
+        assert.deepEqual(actual, expected)
       })
       it('should load features for fakeapp', async () => {
         const inputs = _setup()
