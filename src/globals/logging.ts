@@ -30,12 +30,14 @@ import {
   LogInstanceOptions,
 } from '../types.js'
 import { memoizeValueSync } from '../utils.js'
+import { createOtelLogMethod } from '../otel/libs.js'
+import type { OtelServices } from '../otel/types.js'
 import {
   defaultGetFunctionWrapLogLevel,
   combineLoggingProps,
   capForLogging,
   extractCrossLayerProps,
-} from './lib.js'
+} from './libs.js'
 
 const MAX_LOGGING_ATTEMPTS = 5
 
@@ -60,10 +62,14 @@ const _combineIds = (id: readonly LogId[]) => {
  * @param logMessage
  */
 const consoleLogSimple = (logMessage: LogMessage) => {
+  const splitted = (logMessage.logger || 'root').split(':')
+  // eslint-disable-next-line functional/immutable-data
+  const functionName = splitted.pop()
+
   // @ts-ignore
   // eslint-disable-next-line no-console
   console[logMessage.logLevel](
-    `${logMessage.datetime.toISOString()}: ${logMessage.message}`
+    `${logMessage.datetime.toISOString()}: ${functionName} ${logMessage.message}`
   )
 }
 
@@ -156,7 +162,7 @@ const logTcp = (context: CommonContext) => {
             return true
           })
           .catch(e => {
-            // TODO: Narrow down the scope of these catches
+            // TODO: Narrow down the scope of these catches. Example, depending on error, maybe you do a retry.
             console.warn('Logging error')
             console.warn(e)
             return false
@@ -188,6 +194,8 @@ const _getLogMethodFromFormat = (
       return [() => consoleLogFull]
     case LogFormat.tcp:
       return [logTcp]
+    case LogFormat.otel:
+      return [createOtelLogMethod()]
     default:
       throw new Error(`LogFormat ${logFormat} is not supported`)
   }
@@ -248,58 +256,68 @@ const _layerLogger = <TConfig extends Config = Config>(
   ) => {
     // @ts-ignore
     const logLevel = logLevelGetter(layerName, functionName)
-    return (...a: A) => {
+    return merge((...a: A) => {
       const [argsNoCrossLayer, crossLayer] = extractCrossLayerProps(a)
       const funcLogger = getFunctionLogger(functionName, crossLayer)
-      funcLogger[logLevel](`Executing ${layerName} function`, {
-        args: argsNoCrossLayer,
-      })
-      // eslint-disable-next-line functional/no-try-statements
-      try {
-        // @ts-ignore
-        const result = func(funcLogger, ...argsNoCrossLayer, {
-          logging: {
-            ids: funcLogger.getIds(),
-          },
+      const doWork = () => {
+        funcLogger[logLevel](`Executing ${layerName} function`, {
+          args: argsNoCrossLayer,
         })
-        // If a promise.
-        if (_isPromise(result)) {
-          return result
-            .then(r => {
-              funcLogger[logLevel](`Executed ${layerName} function`, {
-                result: r,
+        // eslint-disable-next-line functional/no-try-statements
+        try {
+          // @ts-ignore
+          const result = func(funcLogger, ...argsNoCrossLayer, {
+            logging: {
+              ids: funcLogger.getIds(),
+            },
+          })
+          if (_isPromise(result)) {
+            return result
+              .then(r => {
+                funcLogger[logLevel](`Executed ${layerName} function`, {
+                  result: r,
+                })
+                return r
               })
-              return r
-            })
-            .catch(e => {
-              funcLogger.error(
-                'Function failed with an exception',
-                createErrorObject(
-                  'INTERNAL_ERROR',
-                  `Layer function ${layerName}:${functionName}`,
-                  e
+              .catch(e => {
+                funcLogger.error(
+                  'Function failed with an exception',
+                  createErrorObject(
+                    'INTERNAL_ERROR',
+                    `Layer function ${layerName}:${functionName}`,
+                    e
+                  )
                 )
-              )
-              throw e
-            })
-        }
-        // If not a promise
-        funcLogger[logLevel](`Executed ${layerName} function`, {
-          result,
-        })
-        return result
-      } catch (e) {
-        funcLogger.error(
-          'Function failed with an exception',
-          createErrorObject(
-            'INTERNAL_ERROR',
-            `Layer function ${layerName}:${functionName}`,
-            e
+                throw e
+              })
+          }
+          funcLogger[logLevel](`Executed ${layerName} function`, {
+            result,
+          })
+          return result
+        } catch (e) {
+          funcLogger.error(
+            'Function failed with an exception',
+            createErrorObject(
+              'INTERNAL_ERROR',
+              `Layer function ${layerName}:${functionName}`,
+              e
+            )
           )
-        )
-        throw e
+          throw e
+        }
       }
-    }
+      const otel = get(context, `services.${CoreNamespace.otel}`) as
+        | OtelServices
+        | undefined
+      if (otel?.runWithTraceAndMetrics) {
+        return otel.runWithTraceAndMetrics(
+          { layerName, functionName, getIds: () => funcLogger.getIds() },
+          doWork
+        )
+      }
+      return doWork()
+    }, func)
   }
 
   // @ts-ignore
@@ -375,13 +393,18 @@ const _subLogger = <TConfig extends Config = Config>(
       if (_shouldIgnore(theLogLevel, logLevel)) {
         return undefined
       }
+      const dataOrErrorObj =
+        typeof dataOrError === 'object' && dataOrError instanceof Error
+          ? createErrorObject('INTERNAL_ERROR', 'Unknown error', dataOrError)
+          : dataOrError
       const funcs = getLogMethods.map(x => x(context))
-      const isError = isErrorObject(dataOrError)
+      const isError = isErrorObject(dataOrErrorObj)
       const { value: data } = safeJson(
-        merge({}, props.data, isError ? {} : dataOrError)
+        merge({}, props.data, isError ? {} : dataOrErrorObj)
       )
+
       const theData = options?.ignoreSizeLimit
-        ? data || {}
+        ? data
         : capForLogging(
             data,
             context.config[CoreNamespace.root].logging.maxLogSizeInCharacters
@@ -394,7 +417,7 @@ const _subLogger = <TConfig extends Config = Config>(
         message,
         ids: props.ids,
         logger: props.names.join(':'),
-        ...(isError ? { error: dataOrError.error } : {}),
+        ...(isError ? { error: dataOrErrorObj.error } : {}),
         ...theData,
         ...omit(props, ['ids', 'names', 'data', 'error']),
       }

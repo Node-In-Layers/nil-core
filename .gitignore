@@ -1,4 +1,6 @@
 dist/
+./features/data/collector/
+build/
 node_modules/
 __pycache__/
 package-lock.json

@@ -11,10 +11,8 @@ Rapid, batteries included, opinionated web development with functional node.
 
 - REST Backend (Model/Controller)
 - Fully featured ORM database system inspired by Django, with support for opensearch, mongo, dynamodb, postgres, sqlite and mysql
-- Auth System (username/password, LDAP, and OAUTH) - (soon)
-- Openapi Spec API Client Builder - (soon)
-- React frontend admin management (soon)
-- React frontend system (soon)
+- Can be used on Backends, Frontends, and SDK/Clients.
+- AI MCP Ready. (Check out our MCP development server below)
 
 ## IONSH Opinions
 
@@ -34,11 +32,27 @@ Node In Layers provides all of the frameworky stuff so that you can focus on the
 1. Cohesion
 1. Layers
 
-## Cohesive Apps
+## Cohesive Domains (formerly Apps)
 
-Similar to Python's Django or the Ruby on Rails framework, Node In Layers follows a cohesive "app" pattern. What this means, is that code is easy to find and understand where it goes, not just by its "categorical structural" nature (is this a model, view or controller?) but by what code it "belongs" near.
+Similar to Python's Django or the Ruby on Rails framework, Node In Layers follows a cohesive "domain" pattern. What this means, is that code is easy to find and understand where it goes, not just by its "categorical structural" nature (is this a model, view or controller?) but by what code it "belongs" near.
 
-An example is "auth". All code related to authentication and users, could go into an "app" called "auth". That way, if you want to know where authentication is happening, take a look at the "auth" layer.
+An example is "auth". All code related to authentication and users, could go into an "domain" called "auth". That way, if you want to know where authentication is happening, take a look at the "auth" layer.
+
+### Namespaces - The name of a domain.
+
+Domains can and should have simple names. Example: `auth`. However for package creators, consider using a namespace to group domains that are part of a package.
+A namespace is both a simple domain name, as well as a domain name that has a prefix with a package name on it.
+
+An example:
+
+```typescript
+// This is the name of this overall package, but it doesn't define a specific domain.
+const packageName = '@node-in-layers/core'
+
+// These are domains within the package itself.
+const abcDomain = '@node-in-layers/core/abc'
+const xyzDomain = '@node-in-layers/core/xyz'
+```
 
 ## Systemic Architecture
 
@@ -203,6 +217,126 @@ const create = context => {
   }
 }
 ```
+
+## OpenTelemetry Support (optional)
+
+You can send the framework’s logs, spans, and metrics to OpenTelemetry so they show up in OTel-backed tools (Jaeger, Tempo, Elastic, etc.). The existing NIL tracing model (ids + `crossLayerProps`) stays the same; OTel is just another place to see it.
+
+### 1. Install OpenTelemetry APIs (required)
+
+NIL’s OTel integration talks to the OTel APIs; you bring the concrete SDK and exporters. At minimum you need:
+
+```bash
+npm install @opentelemetry/api @opentelemetry/api-logs
+```
+
+### 2. Install a Node SDK and exporters (Node backend example)
+
+For a typical Node backend that exports traces/logs/metrics over OTLP HTTP:
+
+```bash
+npm install \
+  @opentelemetry/sdk-node \
+  @opentelemetry/exporter-trace-otlp-http \
+  @opentelemetry/exporter-logs-otlp-http \
+  @opentelemetry/exporter-metrics-otlp-http
+```
+
+You can use any OTel setup (NodeSDK, manual providers, auto-instrumentation, etc.) as long as it registers global providers in your process.
+
+### 3. Configure core logging and explicitly wire exporters (config files)
+
+All OTel integration on the NIL side is driven by `config[CoreNamespace.root].logging`. You also own the lifecycle of your OTel SDK/exporters. A simple Node config might look like:
+
+```typescript
+// /config.base.mts
+import { CoreNamespace, LogFormat, LogLevelNames } from '@node-in-layers/core'
+import { NodeSDK } from '@opentelemetry/sdk-node'
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http'
+// Optional: add log / metric exporters as needed.
+// import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-http'
+// import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http'
+
+// Exported so it can be reused from other entrypoints if needed.
+export const setupOtel = () => {
+  const sdk = new NodeSDK({
+    traceExporter: new OTLPTraceExporter({
+      // Or read from env: OTEL_EXPORTER_OTLP_ENDPOINT, etc.
+      url:
+        process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT ??
+        'http://localhost:4318/v1/traces',
+    }),
+    // logsExporter: new OTLPLogExporter({}),
+    // metricReader: new PeriodicExportingMetricReader({
+    //   exporter: new OTLPMetricExporter({}),
+    // }),
+  })
+
+  // Start the SDK as part of your normal config/bootstrap path.
+  void sdk.start()
+  return sdk
+}
+
+export default () => {
+  // Ensure exporters are created as part of the normal setup process,
+  // rather than being implicitly created by NIL.
+  setupOtel()
+
+  return {
+    systemName: 'your-system-name',
+    [CoreNamespace.root]: {
+      logging: {
+        logLevel: LogLevelNames.info,
+
+        // Send logs both to console (JSON) and to OpenTelemetry
+        logFormat: [LogFormat.json, LogFormat.otel],
+
+        // OpenTelemetry settings for this system
+        otel: {
+          serviceName: 'your-system-name',
+          version: '1.0.0',
+
+          // Enable OTel logs (used by LogFormat.otel)
+          logs: { enabled: true },
+
+          // Optional: enable spans and metrics for wrapped layer functions
+          trace: { enabled: true },
+          metrics: { enabled: true },
+        },
+      },
+    },
+  }
+}
+```
+
+When `loadSystem()` runs, it:
+
+- Creates the OTel services domain.
+- Wires NIL’s internal OTel helpers based on `logging.otel`
+- Makes `context.services['@node-in-layers/core/otel']` available to layers (trace/metrics/logs helpers).
+
+### 4. What actually gets sent to OpenTelemetry
+
+- **Logs** (via `LogFormat.otel`):
+
+  - Every framework log is forwarded to OTel with:
+    - `body` = log message
+    - `severityNumber` / `severityText` mapped from NIL `logLevel`
+    - Attributes:
+      - `logger` (e.g. `domain:layer:function`)
+      - `environment`
+      - All ids from `logMessage.ids`, flattened into keys like `runtimeId`, `featureId`, `featureId-2`, `requestId`, `requestId-2`, etc.
+      - `error` when present
+
+- **Spans** (optional, via `runWithTraceAndMetrics`):
+
+  - NIL starts a span per wrapped layer function (name = `layer:function`).
+  - Span attributes include the same flattened ids (so your `functionCallId` etc. travel with the span).
+
+- **Metrics** (optional, via `runWithTraceAndMetrics`):
+  - Histograms `layer.function.duration` (ms) and counters `layer.function.calls`, with attributes `{ layer, function }`.
+
+Your OpenTelemetry SDK and exporters decide where this data goes (OTLP, vendor backend, etc.). NIL’s job is to forward structured logs/ids and layer identity into the OTel APIs, based purely on configuration.
 
 # Models
 
@@ -603,7 +737,7 @@ The biggest reason for this is performance.
 ## Annotated Functions
 
 Node-in-layers provides a function `annotatedFunction()` that is extremely useful for building consumable living APIs.
-This functionality is heavily recommended for feature level exported functions, or higher.
+This functionality is heavily recommended for feature level functions.
 
 This function AUTOMATICALLY accounts for crossLayerProps as a last optional argument to the function as well that the output could be the type you describe OR an ErrorObject type.
 
@@ -616,6 +750,8 @@ import { annotatedFunction, isErrorObject } from '@node-in-layers/core'
 const create = (context: FeaturesContext<Config, MyServicesContext>) => {
   const hello = annotatedFunction(
     {
+      functionName: 'hello',
+      domain: 'myDomain',
       description:
         'This is my function, there are many like it, but this one is mine.',
       args: z.object({
@@ -655,3 +791,24 @@ console.info(result.output) // "Hello World"
 ```
 
 NOTE: The reason why an object is enforced for input AND output, is it sets up a layer function to be exported and described in an OpenAPI format, or exported via an AI MCP layer.
+
+# MCP Development Server
+
+Node In Layers Core ships with an MCP server for AI based development. It provides knowledge entries for the AI to have specific examples of how to work with and manipulate a Node In Layers system. This GREATLY increases the accuracy and understanding of AI working with these systems, making it really easy to add new features, refactor, and make the best use of features.
+
+## Quick Start
+
+You can setup the server by setting up Cursor (or similar) with this configuration.
+
+```json
+{
+  "mcpServers": {
+    "node-in-layers-core": {
+      "command": "npx",
+      "args": ["-y", "@node-in-layers/core-knowledge-mcp"]
+    }
+  }
+}
+```
+
+You can learn more about this here [Knowledge MCP](./knowledge-mcp/README.md)

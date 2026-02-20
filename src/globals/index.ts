@@ -8,6 +8,7 @@ import {
   App,
   CommonContext,
   CoreNamespace,
+  FeaturesContext,
 } from '../types.js'
 import { memoizeValue } from '../utils.js'
 import { standardLogger } from './logging.js'
@@ -38,6 +39,12 @@ type GlobalsFeatures<TConfig extends Config> = Readonly<{
   loadGlobals: <TGlobals extends Record<string, any> = object>(
     environmentOrConfig: string | TConfig
   ) => Promise<CommonContext<TConfig> & TGlobals>
+}>
+
+type GlobalServicesLayer = Readonly<{
+  services: {
+    [CoreNamespace.globals]: GlobalsServices<Config>
+  }
 }>
 
 const services = {
@@ -108,14 +115,15 @@ const services = {
 }
 
 const features = {
-  create: <TConfig extends Config>({
-    services,
-  }: {
-    services: {
-      [CoreNamespace.globals]: GlobalsServices<TConfig>
+  create: <TConfig extends Config>(
+    context: FeaturesContext<TConfig, GlobalServicesLayer>
+  ): GlobalsFeatures<TConfig> => {
+    const ourServices = get(context.services, name) as
+      | GlobalsServices<TConfig>
+      | undefined
+    if (!ourServices) {
+      throw new Error(`Services for ${name} not found`)
     }
-  }): GlobalsFeatures<TConfig> => {
-    const ourServices = get(services, name)
 
     const loadGlobals = async <TGlobals extends object>(
       environmentOrConfig: string | TConfig

@@ -5,9 +5,17 @@ import {
   ModelInstanceFetcher,
   ModelType,
   JsonAble,
+  JsonObj,
+  PrimaryKeyType,
+  PrimaryKeyGenerator,
+  PrimaryKeyPropertyType,
+  MaybeFunction,
+  DatabaseKeyPropertyConfig,
+  PrimaryKeyProperty,
+  ForeignKeyProperty,
 } from 'functional-models'
 
-type ModelConstructor = Readonly<{
+export type ModelConstructor = Readonly<{
   create: <
     T extends DataDescription,
     TModelExtensions extends object = object,
@@ -18,16 +26,16 @@ type ModelConstructor = Readonly<{
 }>
 
 /**
- * An app.
+ * A domain within a system.
  * @interface
  */
-type App = Readonly<{
+export type App = Readonly<{
   /**
-   * The name of the app
+   * The name of the domain
    */
   name: string
   /**
-   * The description of the app
+   * The description of the domain
    */
   description?: string
   /**
@@ -52,7 +60,7 @@ type App = Readonly<{
 /**
  * Log Levels
  */
-enum LogLevel {
+export enum LogLevel {
   TRACE = 0,
   DEBUG = 1,
   INFO = 2,
@@ -65,7 +73,7 @@ enum LogLevel {
 /**
  * Log Levels by names.
  */
-enum LogLevelNames {
+export enum LogLevelNames {
   trace = 'trace',
   debug = 'debug',
   info = 'info',
@@ -77,12 +85,12 @@ enum LogLevelNames {
 /**
  * A Promise or not a promise.
  */
-type MaybePromise<T> = Promise<T> | T
+export type MaybePromise<T> = Promise<T> | T
 
 /**
  * The format of log messages to the console.
  */
-enum LogFormat {
+export enum LogFormat {
   /**
    * Console logs json
    */
@@ -99,6 +107,10 @@ enum LogFormat {
    * Logs messages over TCP. Must provide tcp options in logOptions
    */
   tcp = 'tcp',
+  /**
+   * Forwards log messages to the OpenTelemetry Logs API (e.g. when logging.otel is configured).
+   */
+  otel = 'otel',
   full = 'full',
 }
 
@@ -106,7 +118,7 @@ enum LogFormat {
  * A standardized error object.
  * @interface
  */
-type ErrorObject = Readonly<{
+export type ErrorObject = Readonly<{
   /**
    * Shows that this is an error object.
    */
@@ -142,7 +154,7 @@ type ErrorObject = Readonly<{
  * Common props that can be passed between layers
  * @interface
  */
-type CrossLayerProps<T extends object = object> = Readonly<{
+export type CrossLayerProps<T extends object = object> = Readonly<{
   logging?: {
     ids?: readonly LogId[]
   }
@@ -168,7 +180,7 @@ type CrossLayerProps<T extends object = object> = Readonly<{
  * ```
  * @interface
  */
-type LayerFunction<T extends (...args: any[]) => any> = T extends (
+export type LayerFunction<T extends (...args: any[]) => any> = T extends (
   ...args: infer Args
 ) => infer ReturnType
   ? (...args: [...Args, crossLayerProps?: CrossLayerProps]) => ReturnType
@@ -177,12 +189,12 @@ type LayerFunction<T extends (...args: any[]) => any> = T extends (
 /**
  * A function argument that types inputs and outputs.
  */
-type TypedFunction<T, A extends Array<any>> = (...args: A) => T
+export type TypedFunction<T, A extends Array<any>> = (...args: A) => T
 
 /**
  * A function that is wrapped with logging calls.
  */
-type LogWrapSync<T, A extends Array<any>> = (
+export type LogWrapSync<T, A extends Array<any>> = (
   functionLogger: FunctionLogger,
   ...args: A
 ) => T
@@ -190,12 +202,14 @@ type LogWrapSync<T, A extends Array<any>> = (
 /**
  * A function argument that types inputs and outputs and is a promise.
  */
-type TypedFunctionAsync<T, A extends Array<any>> = (...args: A) => Promise<T>
+export type TypedFunctionAsync<T, A extends Array<any>> = (
+  ...args: A
+) => Promise<T>
 
 /**
  * An Async function that is wrapped with logging functions.
  */
-type LogWrapAsync<T, A extends Array<any>> = (
+export type LogWrapAsync<T, A extends Array<any>> = (
   functionLogger: FunctionLogger,
   ...args: A
 ) => Promise<T>
@@ -203,14 +217,14 @@ type LogWrapAsync<T, A extends Array<any>> = (
 /**
  * A function level logger.
  */
-type FunctionLogger = Logger
+export type FunctionLogger = Logger
 
 /**
  * A logger for a layer. (Services/Features/etc)
- * Already has the app's name appended to the logging data as well as the runtimeId.
+ * Already has the domain's name appended to the logging data as well as the runtimeId.
  * @interface
  */
-type LayerLogger = Logger &
+export type LayerLogger = Logger &
   Readonly<{
     /**
      * A generic function for wrapping logs. Not generally intended to be used
@@ -271,10 +285,10 @@ type LayerLogger = Logger &
   }>
 
 /**
- * A logger for an app.
+ * A logger for an domain.
  * @interface
  */
-type AppLogger = Logger &
+export type AppLogger = Logger &
   Readonly<{
     getLayerLogger: (
       layerName: CommonLayerName | string,
@@ -282,9 +296,9 @@ type AppLogger = Logger &
     ) => LayerLogger
   }>
 
-type GetAppLogger = (appName: string) => AppLogger
+type GetAppLogger = (domainName: string) => AppLogger
 
-enum CommonLayerName {
+export enum CommonLayerName {
   models = 'models',
   services = 'services',
   features = 'features',
@@ -294,15 +308,24 @@ enum CommonLayerName {
 /**
  * Options for a specific instance of logging.
  */
-type LogInstanceOptions = Readonly<{
+export type LogInstanceOptions = Readonly<{
   ignoreSizeLimit?: boolean
+}>
+
+/**
+ * A wrapper around an object that needs to be explicitly initialized before use.
+ */
+export type RequiresInitialization<T> = Readonly<{
+  isInitialized: () => boolean
+  getInstance: () => T
+  initialize: () => Promise<void>
 }>
 
 /**
  * A log object
  * @interface
  */
-type Logger = Readonly<{
+export type Logger = Readonly<{
   /**
    * Trace statement
    * @param message - The logs message
@@ -369,7 +392,7 @@ type Logger = Readonly<{
   getIds: () => readonly LogId[]
 }>
 
-type HighLevelLogger = Logger &
+export type HighLevelLogger = Logger &
   Readonly<{
     getAppLogger: GetAppLogger
   }>
@@ -378,7 +401,7 @@ type HighLevelLogger = Logger &
  * A base level log object, that creates a logger
  * @interface
  */
-type RootLogger<TConfig extends Config = Config> = Readonly<{
+export type RootLogger<TConfig extends Config = Config> = Readonly<{
   /**
    * Gets a logger object wrapping the components.
    * @param context - Context used for configuring a logger.
@@ -394,84 +417,126 @@ type RootLogger<TConfig extends Config = Config> = Readonly<{
  * A log id object.
  * @interface
  */
-type LogId = Readonly<Record<string, string>>
+export type LogId = Readonly<Record<string, string>>
 
 /**
  * A fully fleshed out log message.
  * @interface
  */
-type LogMessage<T extends Record<string, JsonAble> = Record<string, JsonAble>> =
-  Readonly<{
-    /**
-     * The unique id for this log message. Every log message has a unique id.
-     */
-    id: string
-    /**
-     * The name of the logger. This is assembled from nested names joined with ':'.
-     */
-    logger: string
-    /**
-     * The environment this log was produced in.
-     */
-    environment: string
-    /**
-     * A stack of ids that get added on and removed. Useful for tracing
-     * throughout a system. The first ones, are the oldest, and the last ones are the newest.
-     */
-    ids?: readonly LogId[]
-    /**
-     * The log level
-     */
-    logLevel: LogLevelNames
-    /**
-     * The datetime of the message
-     */
-    datetime: Date
-    /**
-     * The log's message
-     */
-    message: string
-  }> &
-    Partial<ErrorObject> &
-    T
+export type LogMessage<
+  T extends Record<string, JsonAble> = Record<string, JsonAble>,
+> = Readonly<{
+  /**
+   * The unique id for this log message. Every log message has a unique id.
+   */
+  id: string
+  /**
+   * The name of the logger. This is assembled from nested names joined with ':'.
+   */
+  logger: string
+  /**
+   * The environment this log was produced in.
+   */
+  environment: string
+  /**
+   * A stack of ids that get added on and removed. Useful for tracing
+   * throughout a system. The first ones, are the oldest, and the last ones are the newest.
+   */
+  ids?: readonly LogId[]
+  /**
+   * The log level
+   */
+  logLevel: LogLevelNames
+  /**
+   * The datetime of the message
+   */
+  datetime: Date
+  /**
+   * The log's message
+   */
+  message: string
+}> &
+  Partial<ErrorObject> &
+  T
 
 /**
  * A base functionfunction that can handle a log message.
  */
-type LogFunction = (logMessage: LogMessage) => void | Promise<void>
+export type LogFunction = (logMessage: LogMessage) => void | Promise<void>
 
 /**
  * A method that can do logging once given a context.
  */
-type LogMethod<TConfig extends Config = Config> = (
+export type LogMethod<TConfig extends Config = Config> = (
   context: CommonContext<TConfig>
 ) => LogFunction
 
 /**
  * Core Namespaces.
  */
-enum CoreNamespace {
+export enum CoreNamespace {
   root = '@node-in-layers/core',
   globals = '@node-in-layers/core/globals',
   layers = '@node-in-layers/core/layers',
   models = '@node-in-layers/core/models',
+  otel = '@node-in-layers/core/otel',
 }
 
 /**
  * A generic layer
  */
-type GenericLayer = Record<string, any>
+export type GenericLayer = Record<string, any>
+
+/**
+ * A helpful function that can creates a PrimaryKeyProperty that operates in a standard way. This uses the CoreConfig to get the primary key property type and generator.
+ * The functionality of this can be greatly overrided by creating a custom PrimaryKeyGenerator.
+ */
+export type PrimaryKeyPropertyGetter = <
+  T extends PrimaryKeyType = PrimaryKeyType,
+>(
+  domain: string,
+  modelPluralName: string,
+  config?: DatabaseKeyPropertyConfig<T>
+) => ReturnType<typeof PrimaryKeyProperty<T>>
+
+/**
+ *
+ */
+export type ForeignKeyPropertyGetter = <
+  T extends PrimaryKeyType = PrimaryKeyType,
+>(
+  /**
+   * The domain of the model.
+   */
+  domain: string,
+  /**
+   * The plural name of the model.
+   */
+  modelPluralName: string,
+  /**
+   * The model to use as the foreign key.
+   */
+  foreignKeyModel: MaybeFunction<ModelType<any>>,
+  /**
+   * The config for the foreign key property.
+   */
+  config?: Omit<DatabaseKeyPropertyConfig<T>, 'auto' | 'primaryKeyGenerator'>
+) => ReturnType<typeof ForeignKeyProperty<T, DataDescription>>
 
 /**
  * Props that go into a model constructor.
  * @interface
  */
-type ModelProps<
+export type ModelProps<
+  TConfig extends Config = Config,
   TModelOverrides extends object = object,
   TModelInstanceOverrides extends object = object,
 > = Readonly<{
+  context: CommonContext<TConfig>
   Model: ModelFactory<TModelOverrides, TModelOverrides>
   fetcher: ModelInstanceFetcher<TModelOverrides, TModelInstanceOverrides>
+  getPrimaryKeyProperty: PrimaryKeyPropertyGetter
+  getForeignKeyProperty: ForeignKeyPropertyGetter
   getModel: <T extends DataDescription>(
     namespace: string,
     modelName: string
@@ -482,7 +547,7 @@ type ModelProps<
  * Custom model properties. getModel is provided by the framework.
  * @interface
  */
-type PartialModelProps<
+export type PartialModelProps<
   TModelOverrides extends object = object,
   TModelInstanceOverrides extends object = object,
 > = Readonly<{
@@ -492,38 +557,39 @@ type PartialModelProps<
 
 /**
  * A function that can get model props from a services context.
+ * The last argument may be CrossLayerProps (same convention as LayerFunction).
  */
-type GetModelPropsFunc = (
+export type GetModelPropsFunc = (
   context: ServicesContext,
   ...args: any[]
 ) => PartialModelProps
 
 /**
- * Services for the layer app
+ * Services for the layer domain
  */
-type LayerServices = Readonly<{
+export type LayerServices = Readonly<{
   /**
    * The standard default function for getting model props
    */
   getModelProps: (context: ServicesContext) => ModelProps
   /**
    * Loads a layer.
-   * @param app
+   * @param domain
    * @param layer
    * @param existingLayers
    */
   loadLayer: (
-    app: App,
+    domain: App,
     layer: string,
     existingLayers: LayerContext
   ) => MaybePromise<GenericLayer | undefined>
 }>
 
 /**
- * The services layer for the core layers app
+ * The services layer for the core layers domain
  * @interface
  */
-type LayerServicesLayer = {
+export type LayerServicesLayer = {
   /**
    * A logger for this service.
    */
@@ -536,7 +602,7 @@ type LayerServicesLayer = {
   }
 }
 
-type LayerDescription = string | readonly string[]
+export type LayerDescription = string | readonly string[]
 
 /**
  * String model name, to either service name, or namespace, db key, and optional additional args.
@@ -552,10 +618,41 @@ type ModelToModelFactoryNamespace = Record<
 type NamespaceToFactory = Record<string, ModelToModelFactoryNamespace>
 
 /**
+ * OTLP or other exporter endpoint options for OpenTelemetry.
+ */
+export type OtelExporterConfig = Readonly<{
+  endpoint?: string
+  headers?: Record<string, string>
+}>
+
+/**
+ * Per-signal (trace / logs / metrics) options for OpenTelemetry.
+ */
+export type OtelSignalConfig = Readonly<{
+  enabled?: boolean
+  exporter?: OtelExporterConfig
+}>
+
+/**
+ * OpenTelemetry configuration. When absent, setupOtel() is a no-op. Enable per signal via trace/logs/metrics .enabled.
+ */
+export type OtelConfig = Readonly<{
+  /** Service name sent to OTel (e.g. systemName or app name). */
+  serviceName?: string
+  /** Version for the OTel resource (optional). */
+  version?: string
+  trace?: OtelSignalConfig
+  logs?: OtelSignalConfig
+  metrics?: OtelSignalConfig
+  /** Shared exporter defaults (overridden by per-signal exporter). */
+  exporter?: OtelExporterConfig
+}>
+
+/**
  * The core configurations
  * @interface
  */
-type CoreConfig = Readonly<{
+export type CoreConfig = Readonly<{
   /**
    * Options for logging.
    */
@@ -567,7 +664,7 @@ type CoreConfig = Readonly<{
     /**
      * The format of log messages. If multiple are included, then multiple logging approaches will be used.
      */
-    logFormat: LogFormat | readonly LogFormat[]
+    logFormat: XOR<LogFormat, ReadonlyArray<LogFormat>>
     /**
      * The maximum number of characters a log can be. NOTE: This is the count of any optional data properties,
      * and does NOT include any core fields. Defaults to 50,000
@@ -630,6 +727,10 @@ type CoreConfig = Readonly<{
       string,
       boolean | Record<string, Record<string, boolean> | boolean>
     >
+    /**
+     * OpenTelemetry configuration. When present, the otel domain can set up providers per signal (trace/logs/metrics). Enable per signal via .trace.enabled, .logs.enabled, .metrics.enabled.
+     */
+    otel?: OtelConfig
   }
   /**
    * The layers to be loaded, in their order.
@@ -637,12 +738,12 @@ type CoreConfig = Readonly<{
    */
   layerOrder: readonly LayerDescription[]
   /**
-   * Already loaded apps.
+   * Already loaded domains.
    * Most often take the form of doing require/imports directly in the config.
    */
   apps: readonly App[]
   /**
-   * Optional: The namespace to the app.services that has a "getModelProps()" function used for loading models
+   * Optional: The namespace to the domain.services that has a "getModelProps()" function used for loading models
    */
   modelFactory?: string
   /**
@@ -653,13 +754,38 @@ type CoreConfig = Readonly<{
    * Optional: Provides granular getModelProps() for specific models.
    */
   customModelFactory?: NamespaceToFactory
+  /**
+   * Optional: The primary key property type to use for models. Defaults to UniqueId (UUID).
+   * This can/should be used to control the data type of primary keys throughout an entire system.
+   * It is flexible to support changing this data type and supporting integer (SQL) in one config and uuid (NoSQL) in another.
+   */
+  modelIdPropertyType?: PrimaryKeyPropertyType
+  /**
+   * Optional: A custom primary key generator function to use for models. If the property type is UniqueId (default) then this will produce random UUID. If the property type is a number, a random number will be generated.
+   * If using a SQL-like database that uses numbers, its HIGHLY recommended to get a number from the database itself.
+   */
+  primaryKeyGenerator?: PrimaryKeyGenerator
+  /**
+   * Advanced Optional: If you need to set different primary key property types depending on the model. This is useful for when you have multiple databases that need different primary keys.
+   * If the model is NOT located in this record, then the modelIdPropertyType will be used.
+   * This format is:
+   * 'domain/PluralModelName' => PrimaryKeyPropertyType
+   */
+  modelNameToIdPropertyType?: Record<string, PrimaryKeyPropertyType>
+  /**
+   * Advanced Optional: If you need to set different primary key generators depending on the model. This is useful for when you have multiple databases that need different primary keys.
+   * If the model is NOT located in this record, then the primaryKeyGenerator will be used.
+   * This format is:
+   * 'domain/PluralModelName' => PrimaryKeyGenerator
+   */
+  modelNameToPrimaryKeyGenerator?: Record<string, PrimaryKeyGenerator>
 }>
 
 /**
  * A basic config object
  * @interface
  */
-type Config = Readonly<{
+export type Config = Readonly<{
   /**
    * The systems name
    */
@@ -675,10 +801,10 @@ type Config = Readonly<{
 }>
 
 /**
- * A generic layer within an app
+ * A generic layer within an domain
  * @interface
  */
-type AppLayer<
+export type AppLayer<
   TConfig extends Config = Config,
   TContext extends object = object,
   TLayer extends object = object,
@@ -694,7 +820,7 @@ type AppLayer<
  * The base level context that everything recieves.
  * @interface
  */
-type CommonContext<TConfig extends Config = Config> = Readonly<{
+export type CommonContext<TConfig extends Config = Config> = Readonly<{
   /**
    * The configuration file.
    */
@@ -725,7 +851,7 @@ type CommonContext<TConfig extends Config = Config> = Readonly<{
 /**
  * The context for a layer
  */
-type LayerContext<
+export type LayerContext<
   TConfig extends Config = Config,
   TContext extends object = object,
 > = CommonContext<TConfig> &
@@ -740,7 +866,7 @@ type LayerContext<
  * A context for layers that consume services. (Services and features generally)
  * @interface
  */
-type ServicesContext<
+export type ServicesContext<
   TConfig extends Config = Config,
   TServices extends object = object,
   TContext extends object = object,
@@ -765,7 +891,17 @@ type ServicesContext<
     /**
      * A services object.
      */
-    services: TServices
+    services: TServices & {
+      /**
+       * Advanced: This function will give you any initialized services object, AFTER loadSystem has been called.
+       * This is useful for situations where you need a service to be able to be configurable and access a domain AFTER this specific one has been loaded.
+       * @param domain The domain name.
+       * @returns The services object for the given domain
+       */
+      getServices: <TService extends Record<string, any>>(
+        domain: string
+      ) => TService | undefined
+    }
   } & TContext
 >
 
@@ -773,7 +909,7 @@ type ServicesContext<
  * A factory for creating the service.
  * @interface
  */
-type ServicesLayerFactory<
+export type ServicesLayerFactory<
   TConfig extends Config = Config,
   TServices extends object = object,
   TContext extends object = object,
@@ -797,7 +933,7 @@ type GlobalsLayer<
  * A context for layers that consume features. (Features and entries generally)
  * @interface
  */
-type FeaturesContext<
+export type FeaturesContext<
   TConfig extends Config = Config,
   TServices extends object = object,
   TFeatures extends object = object,
@@ -808,15 +944,37 @@ type FeaturesContext<
     /**
      * Services
      */
-    services: TServices
+    services: TServices & {
+      /**
+       * Advanced: This function will give you any initialized services object, AFTER loadSystem has been called.
+       * This is useful for situations where you need a service to be able to be configurable and access a domain AFTER this specific one has been loaded.
+       * This MUST be used only within a function within the layer because at load time, it will be undefined.
+       * @param domain The domain name.
+       * @returns The services object for the given domain
+       */
+      getServices: <TService extends Record<string, any>>(
+        domain: string
+      ) => TService | undefined
+    }
     /**
      * Features
      */
-    features: TFeatures
+    features: TFeatures & {
+      /**
+       * Advanced: This function will give you any initialized features object, AFTER loadSystem has been called.
+       * This is useful for situations where you need a feature to be able to be configurable and access a domain AFTER this specific one has been loaded.
+       * This MUST be used only within a function within the layer because at load time, it will be undefined.
+       * @param domain The domain name.
+       * @returns The features object for the given domain
+       */
+      getFeatures: <TFeature extends Record<string, any>>(
+        domain: string
+      ) => TFeature | undefined
+    }
   } & TGlobals
 >
 
-type FeaturesLayerFactory<
+export type FeaturesLayerFactory<
   TConfig extends Config = Config,
   TContext extends object = object,
   TServices extends object = object,
@@ -831,7 +989,7 @@ type FeaturesLayerFactory<
 /**
  * Describes a complete system, with services and features.
  */
-type System<
+export type System<
   TConfig extends Config = Config,
   TServices extends object = object,
   TFeatures extends object = object,
@@ -840,24 +998,34 @@ type System<
   features: TFeatures
 }
 
+type Without<T, U> = { [P in Exclude<keyof T, keyof U>]?: never }
+
+export type XOR<T, U> = T | U extends object
+  ? (Without<T, U> & U) | (Without<U, T> & T)
+  : T | U
+
 /**
  * A standardized response. Either the normal result, or an error object.
  */
-type Response<R> = R | ErrorObject
+export type Response<R> = XOR<R, ErrorObject>
+
+export type TrueMaybePromise<T> = XOR<Promise<T>, T>
 
 /**
  * Helper type to determine the correct return type
+ * Response<T> for non-void; void stays void. Supports sync/async via MaybePromise.
  */
-type NilFunctionReturn<TOutput> =
-  TOutput extends Promise<infer U> ? Promise<Response<U>> : Response<TOutput>
+export type NilFunctionReturn<TOutput> = [TOutput] extends [void]
+  ? TrueMaybePromise<void>
+  : TrueMaybePromise<Response<TOutput>>
 
 /**
  * A node in layer function. This standardized function takes all its arguments via a props object, and then it takes an optional
  * CrossLayerProps for between layer communications.
  */
-type NilFunction<
-  TProps extends JsonAble,
-  TOutput extends JsonAble | undefined,
+export type NilFunction<
+  TProps extends JsonObj,
+  TOutput extends XOR<JsonObj, void>,
 > = (
   props: TProps,
   crossLayerProps?: CrossLayerProps
@@ -867,11 +1035,19 @@ type NilFunction<
  * A node in layer function that has been annotated with a schema.
  * @interface
  */
-type NilAnnotatedFunction<
-  TProps extends JsonAble,
-  TOutput extends JsonAble | undefined,
+export type NilAnnotatedFunction<
+  TProps extends JsonObj,
+  TOutput extends XOR<JsonObj, void>,
 > = NilFunction<TProps, TOutput> &
   Readonly<{
+    /**
+     * The name of the function.
+     */
+    functionName: string
+    /**
+     * The domain the function is within.
+     */
+    domain: string
     /**
      * A Zod schema that describes the function
      */
@@ -881,51 +1057,32 @@ type NilAnnotatedFunction<
     >
   }>
 
-export {
-  Response,
-  Config,
-  App,
-  LogFormat,
-  LogLevel,
-  LogLevelNames,
-  AppLayer,
-  LayerContext,
-  ServicesContext,
-  ServicesLayerFactory,
-  FeaturesContext,
-  System,
-  RootLogger,
-  CommonContext,
-  CoreNamespace,
-  FeaturesLayerFactory,
-  Logger,
-  LayerDescription,
-  MaybePromise,
-  LayerServices,
-  GenericLayer,
-  LayerServicesLayer,
-  ModelProps,
-  ModelConstructor,
-  GetModelPropsFunc,
-  PartialModelProps,
-  LogMessage,
-  LogFunction,
-  LogMethod,
-  LogId,
-  CoreConfig,
-  ErrorObject,
-  CommonLayerName,
-  CrossLayerProps,
-  AppLogger,
-  LayerLogger,
-  FunctionLogger,
-  HighLevelLogger,
-  TypedFunction,
-  TypedFunctionAsync,
-  LogWrapSync,
-  LogWrapAsync,
-  LayerFunction,
-  LogInstanceOptions,
-  NilAnnotatedFunction,
-  NilFunction,
+/**
+ * The arguments to an Annotated Function
+ * @interface
+ */
+export type AnnotatedFunctionProps<
+  TProps extends JsonObj,
+  TOutput extends XOR<JsonObj, void>,
+> = {
+  /**
+   * The name of the function.
+   */
+  functionName: string
+  /**
+   * The domain the function is within.
+   */
+  domain: string
+  /**
+   * An optional description that explains how to use the function and what it does.
+   */
+  description?: string
+  /**
+   * The input arguments for the function.
+   */
+  args: ZodType<TProps>
+  /**
+   * The returns (if not a void)
+   */
+  returns?: ZodType<TOutput extends void ? never : TOutput>
 }

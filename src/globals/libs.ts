@@ -1,4 +1,5 @@
 import get from 'lodash/get.js'
+import merge from 'lodash/merge.js'
 import { LogLevelNames, CrossLayerProps, Logger } from '../types.js'
 import { combineCrossLayerProps } from '../libs.js'
 
@@ -72,17 +73,21 @@ const capForLogging = (input, maxSize = MAX_LOG_CHARACTERS) => {
   if (inputType === 'array') {
     // Build a new truncated array functionally
     const build = (arr, idx) => {
+      /* c8 ignore next line */
       if (idx >= input.length) {
+        /* c8 ignore next line */
         return arr
+        /* c8 ignore next line */
       }
-      const nextArr = [...arr, input[idx]]
+
+      const nextArr = arr.concat(input[idx])
       if (
         safeStringify([
           ...nextArr,
           `[truncated, original length: ${input.length}]`,
         ]).length > maxSize
       ) {
-        return [...arr, `[truncated, original length: ${input.length}]`]
+        return arr.concat(`[truncated, original length: ${input.length}]`)
       }
       return build(nextArr, idx + 1)
     }
@@ -93,24 +98,30 @@ const capForLogging = (input, maxSize = MAX_LOG_CHARACTERS) => {
     // Build a new truncated object functionally
     const keys = Object.keys(input)
     const build = (obj, idx) => {
+      /* c8 ignore next line */
       if (idx >= keys.length) {
+        /* c8 ignore next line */
         return obj
+        /* c8 ignore next line */
       }
       const key = keys[idx]
-      const nextObj = { ...obj, [key]: input[key] }
-      if (
-        safeStringify({
-          ...nextObj,
-          '[truncated]': `original keys: ${keys.length}`,
-        }).length > maxSize
-      ) {
-        return { ...obj, '[truncated]': `original keys: ${keys.length}` }
+      const nextObj = merge(obj, { [key]: input[key] })
+      const truncated = merge(obj, {
+        '[truncated]': `original keys: ${keys.length}`,
+      })
+      if (safeStringify(truncated).length > maxSize) {
+        return truncated
       }
       return build(nextObj, idx + 1)
     }
     return build({}, 0)
   }
 }
+
+const trimTrailingUndefineds = (arr: any[]): any[] =>
+  arr.length === 0 || arr[arr.length - 1] !== undefined
+    ? arr
+    : trimTrailingUndefineds(arr.slice(0, arr.length - 1))
 
 const extractCrossLayerProps = (
   args: any[]
@@ -119,14 +130,17 @@ const extractCrossLayerProps = (
     return [[], undefined]
   }
 
-  const lastArg = args[args.length - 1]
+  const trimmed = trimTrailingUndefineds(args)
 
-  if (isCrossLayerLoggingProps(lastArg)) {
-    // Return all args except the last one, and the last one as CrossLayerProps
-    return [args.slice(0, args.length - 1), lastArg]
+  if (trimmed.length < args.length) {
+    return [trimmed, undefined]
   }
-  // Return all args, and undefined for CrossLayerProps
-  return [args, undefined]
+
+  const lastArg = trimmed[trimmed.length - 1]
+  if (isCrossLayerLoggingProps(lastArg)) {
+    return [trimmed.slice(0, trimmed.length - 1), lastArg]
+  }
+  return [trimmed, undefined]
 }
 
 export {

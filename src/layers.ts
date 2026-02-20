@@ -4,11 +4,12 @@ import omit from 'lodash/omit.js'
 import merge from 'lodash/merge.js'
 import cloneDeep from 'lodash/cloneDeep.js'
 import { DataDescription, Model, ModelType } from 'functional-models'
-import { extractCrossLayerProps } from './globals/lib.js'
+import { extractCrossLayerProps } from './globals/libs.js'
 import {
   App,
   AppLayer,
   CommonContext,
+  Config,
   CoreNamespace,
   FeaturesContext,
   GenericLayer,
@@ -18,13 +19,19 @@ import {
   LayerServicesLayer,
   MaybePromise,
   ModelConstructor,
+  ModelProps,
   PartialModelProps,
   ServicesContext,
 } from './types.js'
 import { DoNothingFetcher, getLayersUnavailable } from './libs.js'
 import { memoizeValueSync } from './utils.js'
-import { createModelCruds } from './models/libs.js'
 import { ModelCrudsFunctions } from './models/types.js'
+import { OtelServicesLayer } from './otel/types.js'
+import {
+  getForeignKeyProperty,
+  getPrimaryKeyProperty,
+  createModelCruds,
+} from './models/internal-libs.js'
 
 const CONTEXT_TO_SKIP = {
   _logging: true,
@@ -40,9 +47,11 @@ const CONTEXT_TO_SKIP = {
 const name = CoreNamespace.layers
 
 const modelGetter = <
+  TConfig extends Config = Config,
   TModelOverrides extends object = object,
   TModelInstanceOverrides extends object = object,
 >(
+  context: CommonContext<TConfig>,
   apps: readonly App[],
   modelProps: PartialModelProps
 ) => {
@@ -77,8 +86,11 @@ const modelGetter = <
     if (!(modelName in memoized)) {
       const func = memoizeValueSync(() =>
         modelConstructor.create<T, TModelOverrides, TModelInstanceOverrides>({
+          context,
           ...modelProps,
           getModel,
+          getPrimaryKeyProperty: getPrimaryKeyProperty(context),
+          getForeignKeyProperty: getForeignKeyProperty(context),
         })
       )
       // We are doing a memoized state so we need this
@@ -93,20 +105,25 @@ const modelGetter = <
 const services = {
   create: (): LayerServices => {
     const getModelProps = <
+      TConfig extends Config = Config,
       TModelOverrides extends object = object,
       TModelInstanceOverrides extends object = object,
     >(
-      context: ServicesContext
+      context: ServicesContext<TConfig>
     ) => {
       const fetcher = DoNothingFetcher
       const modelGetterInstance = modelGetter<
+        TConfig,
         TModelOverrides,
         TModelInstanceOverrides
-      >(context.config[CoreNamespace.root].apps, { Model, fetcher })
+      >(context, context.config[CoreNamespace.root].apps, { Model, fetcher })
       return {
+        context,
         Model,
         fetcher,
         getModel: modelGetterInstance,
+        getPrimaryKeyProperty: getPrimaryKeyProperty(context),
+        getForeignKeyProperty: getForeignKeyProperty(context),
       }
     }
 
@@ -144,8 +161,63 @@ const isPromise = <T>(t: any): t is Promise<T> => {
 }
 
 const features = {
-  create: (context: CommonContext & LayerServicesLayer) => {
+  create: (
+    context: CommonContext &
+      LayerServicesLayer & { services: OtelServicesLayer }
+  ) => {
     type LayerRecord = Record<string, Record<string, object>>
+    const layerOrder = context.config[CoreNamespace.root].layerOrder
+    const orderedLayers = layerOrder.reduce<string[]>(
+      (acc, layer) =>
+        Array.isArray(layer)
+          ? acc.concat(layer as string[])
+          : acc.concat(layer as string),
+      []
+    )
+    const featuresLayerIndex = orderedLayers.indexOf('features')
+    // eslint-disable-next-line functional/no-let
+    let finalizedServicesDomains: Record<string, any> | undefined
+    // eslint-disable-next-line functional/no-let
+    let finalizedFeaturesDomains: Record<string, any> | undefined
+
+    const _canAccessFeatures = (layer: string): boolean => {
+      if (featuresLayerIndex === -1) {
+        return false
+      }
+      const layerIndex = orderedLayers.indexOf(layer)
+      return layerIndex >= featuresLayerIndex
+    }
+
+    const _getServices = <TService extends Record<string, any>>(
+      domain: string
+    ): TService | undefined => {
+      return finalizedServicesDomains?.[domain] as TService | undefined
+    }
+
+    const _getFeatures = <TFeature extends Record<string, any>>(
+      domain: string
+    ): TFeature | undefined => {
+      return finalizedFeaturesDomains?.[domain] as TFeature | undefined
+    }
+
+    const _addFinalizedDomainGetters = (
+      layerContext: LayerContext,
+      currentLayer: string
+    ): LayerContext => {
+      const withServices = merge({}, layerContext, {
+        services: {
+          getServices: _getServices,
+        },
+      })
+      if (!_canAccessFeatures(currentLayer)) {
+        return withServices
+      }
+      return merge({}, withServices, {
+        features: {
+          getFeatures: _getFeatures,
+        },
+      })
+    }
 
     const _getLayerContext = (
       commonContext: LayerContext,
@@ -162,6 +234,10 @@ const features = {
       currentLayer: string,
       layerContext: LayerContext
     ): LayerContext => {
+      const layerContextWithGetters = _addFinalizedDomainGetters(
+        layerContext,
+        currentLayer
+      )
       if (app.models) {
         // If this is services, we need to load models first if they exist
         if (currentLayer === 'services') {
@@ -172,7 +248,8 @@ const features = {
             context.config['@node-in-layers/core'].customModelFactory || {}
           const defaultMf =
             // @ts-ignore
-            layerContext.services[mfNamespace] || context.services[mfNamespace]
+            layerContextWithGetters.services[mfNamespace] ||
+            context.services[mfNamespace]
           if (!defaultMf) {
             throw new Error(
               `Namespace ${mfNamespace} does not have a services object`
@@ -186,7 +263,9 @@ const features = {
           const models: Record<string, ModelConstructor> = app.models
           // This function is added to the services context.
           const getModels = memoizeValueSync(() => {
-            const defaultModelProps = defaultMf.getModelProps(layerContext)
+            const defaultModelProps = defaultMf.getModelProps(
+              layerContextWithGetters
+            )
             const modelsObj = Object.entries(models).reduce(
               (acc, [modelName, constructor]) => {
                 // Do we have a custom model props for this?
@@ -195,17 +274,24 @@ const features = {
                 const customArgs = isCustomArray ? custom.slice(1) : []
                 const customModelProps = custom
                   ? isCustomArray
-                    ? get(layerContext, `services[${custom[0]}].getModelProps`)
-                    : get(layerContext, `services[${custom}].getModelProps`)
+                    ? get(
+                        layerContextWithGetters,
+                        `services[${custom[0]}].getModelProps`
+                      )
+                    : get(
+                        layerContextWithGetters,
+                        `services[${custom}].getModelProps`
+                      )
                   : undefined
                 if (custom && !customModelProps) {
                   throw new Error(
                     `Configuration requires that Model named ${modelName} receive a model props from ${custom}`
                   )
                 }
-                const modelProps = customModelProps
+                const partialModelProps: PartialModelProps = customModelProps
                   ? (customModelProps as GetModelPropsFunc)(
-                      layerContext as ServicesContext,
+                      layerContextWithGetters as ServicesContext,
+                      // @ts-ignore (Cross layer props comes automatically)
                       ...customArgs
                     )
                   : defaultModelProps
@@ -216,14 +302,20 @@ const features = {
                 }
 
                 const getModel = modelGetter(
+                  context,
                   context.config['@node-in-layers/core'].apps,
-                  modelProps
+                  partialModelProps
                 )
 
-                const instance = constructor.create({
-                  ...modelProps,
+                const modelProps: ModelProps = {
+                  context: layerContextWithGetters,
+                  ...partialModelProps,
                   getModel,
-                })
+                  getPrimaryKeyProperty: getPrimaryKeyProperty(context),
+                  getForeignKeyProperty: getForeignKeyProperty(context),
+                }
+
+                const instance = constructor.create(modelProps)
                 return merge(acc, {
                   [modelName]: instance,
                 })
@@ -243,7 +335,7 @@ const features = {
 
           return merge(
             {},
-            layerContext,
+            layerContextWithGetters,
             serviceCruds
               ? {
                   services: {
@@ -268,7 +360,9 @@ const features = {
           // We need to add the feature wrappers over service level wrappers.
           const serviceWrappers: [string, ModelCrudsFunctions<any>][] =
             // @ts-ignore
-            Object.entries(get(layerContext, `services.${app.name}.cruds`, {}))
+            Object.entries(
+              get(layerContextWithGetters, `services.${app.name}.cruds`, {})
+            )
           // @ts-ignore
           const featureWrappers = serviceWrappers.reduce(
             (acc, [name, cruds]) => {
@@ -281,7 +375,7 @@ const features = {
             {}
           )
 
-          return merge({}, layerContext, {
+          return merge({}, layerContextWithGetters, {
             features: {
               [app.name]: {
                 cruds: featureWrappers,
@@ -290,7 +384,7 @@ const features = {
           })
         }
       }
-      return layerContext
+      return layerContextWithGetters
     }
 
     const _loadLayer = async (
@@ -315,9 +409,14 @@ const features = {
         })
       )
       const loggerIds = layerLogger.getIds()
-      const ignoreLayerFunctions =
+      const ignoreLayerFunctions = merge(
         commonContext.config[CoreNamespace.root].logging
-          ?.ignoreLayerFunctions || {}
+          ?.ignoreLayerFunctions || {},
+        {
+          // We want to always ignore OTEL functions for wrapping.
+          [`${CoreNamespace.otel}.services`]: true,
+        }
+      )
 
       const wrappedContext = Object.entries(layerContext).reduce(
         (acc, [layerKey, layerData]) => {
@@ -353,7 +452,8 @@ const features = {
                     return merge(acc3, { [propertyName]: func })
                   }
 
-                  const newFunc = (...args2) => {
+                  // WE HAVE TO MERGE the function on top. If we are wrapping, we can loose annotated information.
+                  const newFunc = merge((...args2) => {
                     const [argsNoCrossLayer, crossLayer] =
                       extractCrossLayerProps(args2)
                     // Automatically create the crossLayerProps
@@ -366,7 +466,7 @@ const features = {
                         },
                       }
                     )
-                  }
+                  }, func)
                   return merge(acc3, { [propertyName]: newFunc })
                 },
                 {}
@@ -415,24 +515,26 @@ const features = {
               return merge(acc, { [propertyName]: func })
             }
 
-            const newFunc = layerLogger._logWrap(
-              propertyName,
-              (log, ...args2) => {
-                const [argsNoCrossLayer, crossLayer] =
-                  extractCrossLayerProps(args2)
-                // Automatically create the crossLayerProps
-                // @ts-ignore
-                return func(
-                  ...argsNoCrossLayer,
-                  crossLayer || {
-                    // create cross layer args.
-                    logging: {
-                      ids: log.getIds(),
-                    },
-                  }
-                )
-                return func(...args2)
-              }
+            const newFunc = merge(
+              layerLogger._logWrap(
+                propertyName,
+                merge((log, ...args2) => {
+                  const [argsNoCrossLayer, crossLayer] =
+                    extractCrossLayerProps(args2)
+                  // Automatically create the crossLayerProps
+                  // @ts-ignore
+                  return func(
+                    ...argsNoCrossLayer,
+                    crossLayer || {
+                      // create cross layer args.
+                      logging: {
+                        ids: log.getIds(),
+                      },
+                    }
+                  )
+                }, func)
+              ),
+              func
             )
             return merge(acc, { [propertyName]: newFunc })
           }, {})
@@ -474,8 +576,10 @@ const features = {
         const theContext = Object.assign(theContext1, {
           log: layerLogger,
         })
-        // @ts-ignore
-        const layerContext = _getLayerContext(theContext, previousLayer)
+        const layerContext = _addFinalizedDomainGetters(
+          _getLayerContext(theContext as LayerContext, previousLayer),
+          layer
+        )
 
         const loggerIds = layerLogger.getIds()
         const ignoreLayerFunctions =
@@ -516,7 +620,7 @@ const features = {
                       return merge(acc3, { [propertyName]: func })
                     }
 
-                    const newFunc = (...args2) => {
+                    const newFunc = merge((...args2) => {
                       const [argsNoCrossLayer, crossLayer] =
                         extractCrossLayerProps(args2)
                       // Automatically create the crossLayerProps
@@ -529,7 +633,7 @@ const features = {
                           },
                         }
                       )
-                    }
+                    }, func)
                     return merge(acc3, { [propertyName]: newFunc })
                   },
                   {}
@@ -577,25 +681,26 @@ const features = {
               if (get(ignoreLayerFunctions, functionLevelKey)) {
                 return merge(acc, { [propertyName]: func })
               }
-              const newFunc = layerLogger._logWrap(
-                propertyName,
-                (log, ...args2) => {
-                  const [argsNoCrossLayer, crossLayer] =
-                    extractCrossLayerProps(args2)
-                  // Automatically create the crossLayerProps
-                  // @ts-ignore
-                  return func(
-                    ...argsNoCrossLayer,
-                    crossLayer || {
-                      // create cross layer args.
-                      logging: {
-                        ids: log.getIds(),
-                      },
-                    }
-                  )
-                  // @ts-ignore
-                  return func(...args2)
-                }
+              const newFunc = merge(
+                layerLogger._logWrap(
+                  propertyName,
+                  merge((log, ...args2) => {
+                    const [argsNoCrossLayer, crossLayer] =
+                      extractCrossLayerProps(args2)
+                    // Automatically create the crossLayerProps
+                    // @ts-ignore
+                    return func(
+                      ...argsNoCrossLayer,
+                      crossLayer || {
+                        // create cross layer args.
+                        logging: {
+                          ids: log.getIds(),
+                        },
+                      }
+                    )
+                  }, func)
+                ),
+                func
               )
               return merge(acc, { [propertyName]: newFunc })
             }, {})
@@ -676,7 +781,13 @@ const features = {
               [LayerContext, LayerRecord]
             >
           )
-          return result[0] as FeaturesContext
+          const finalContext = _addFinalizedDomainGetters(
+            result[0] as LayerContext,
+            'features'
+          ) as FeaturesContext
+          finalizedServicesDomains = finalContext.services
+          finalizedFeaturesDomains = finalContext.features
+          return finalContext
         },
         Promise.resolve(startingContext) as Promise<FeaturesContext>
       ) as Promise<FeaturesContext>

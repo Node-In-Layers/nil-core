@@ -3,9 +3,11 @@ import get from 'lodash/get.js'
 import merge from 'lodash/merge.js'
 import omit from 'lodash/omit.js'
 import {
-  JsonAble,
+  JsonObj,
   ModelInstanceFetcher,
+  OrmModel,
   PrimaryKeyType,
+  DataDescription,
 } from 'functional-models'
 import { wrap } from './utils.js'
 import {
@@ -20,17 +22,20 @@ import {
   NilFunction,
   NilAnnotatedFunction,
   Response,
+  XOR,
+  AnnotatedFunctionProps,
+  CommonContext,
 } from './types.js'
 
-const featurePassThrough = wrap
+export const featurePassThrough = wrap
 
-const configHasKey = (key: string) => (config: Partial<Config>) => {
+export const configHasKey = (key: string) => (config: Partial<Config>) => {
   if (get(config, key) === undefined) {
     throw new Error(`${key} was not found in config`)
   }
 }
 
-const configItemIsArray = (key: string) => (config: Partial<Config>) => {
+export const configItemIsArray = (key: string) => (config: Partial<Config>) => {
   if (Array.isArray(get(config, key)) === false) {
     throw new Error(`${key} must be an array`)
   }
@@ -58,6 +63,16 @@ const _getNamespaceProperty = (namespace: CoreNamespace, property: string) => {
   return `${namespace}.${property}`
 }
 
+const _logFormatIsArrayOrString = () => (config: Partial<Config>) => {
+  const logFormat = get(
+    config,
+    _getNamespaceProperty(CoreNamespace.root, 'logging.logFormat')
+  )
+  if (!Array.isArray(logFormat) && typeof logFormat !== 'string') {
+    throw new Error('logFormat must be an array or a string')
+  }
+}
+
 const _configItemsToCheck: readonly ((config: Partial<Config>) => void)[] = [
   configHasKey('environment'),
   configHasKey('systemName'),
@@ -70,17 +85,14 @@ const _configItemsToCheck: readonly ((config: Partial<Config>) => void)[] = [
     _getNamespaceProperty(CoreNamespace.root, 'logging.logLevel'),
     'string'
   ),
-  configItemIsType(
-    _getNamespaceProperty(CoreNamespace.root, 'logging.logFormat'),
-    'string'
-  ),
+  _logFormatIsArrayOrString(),
 ]
 
-const validateConfig = (config: Partial<Config>) => {
+export const validateConfig = (config: Partial<Config>) => {
   _configItemsToCheck.forEach(x => x(config))
 }
 
-const getLogLevelName = (logLevel: LogLevel) => {
+export const getLogLevelName = (logLevel: LogLevel) => {
   switch (logLevel) {
     case LogLevel.TRACE:
       return 'TRACE'
@@ -99,7 +111,7 @@ const getLogLevelName = (logLevel: LogLevel) => {
   }
 }
 
-const getLogLevelNumber = (logLevel: LogLevelNames) => {
+export const getLogLevelNumber = (logLevel: LogLevelNames) => {
   switch (logLevel) {
     case LogLevelNames.trace:
       return LogLevel.TRACE
@@ -118,13 +130,18 @@ const getLogLevelNumber = (logLevel: LogLevelNames) => {
   }
 }
 
-const getLayerKey = (layerDescription: LayerDescription): string => {
+const _getLayerKey = (layerDescription: LayerDescription): string => {
+  // Probably never going to have the first case.
+  /* c8 ignore next */
   return Array.isArray(layerDescription)
-    ? layerDescription.join('-')
+    ? /* c8 ignore next */
+      layerDescription.join('-')
     : (layerDescription as string)
 }
 
-const getLayersUnavailable = (allLayers: readonly LayerDescription[]) => {
+export const getLayersUnavailable = (
+  allLayers: readonly LayerDescription[]
+) => {
   const layerToChoices: Record<string, string[]> = allLayers.reduce(
     (acc, layer, index) => {
       const antiLayers = allLayers.slice(index + 1)
@@ -139,7 +156,7 @@ const getLayersUnavailable = (allLayers: readonly LayerDescription[]) => {
         }, acc)
         return compositeAnti
       }
-      const key = getLayerKey(layer)
+      const key = _getLayerKey(layer)
       return merge(acc, {
         [key]: allLayers.slice(index + 1),
       })
@@ -155,7 +172,7 @@ const getLayersUnavailable = (allLayers: readonly LayerDescription[]) => {
   }
 }
 
-const isConfig = <TConfig extends Config>(obj: any): obj is TConfig => {
+export const isConfig = <TConfig extends Config>(obj: any): obj is TConfig => {
   if (typeof obj === 'string') {
     return false
   }
@@ -164,15 +181,21 @@ const isConfig = <TConfig extends Config>(obj: any): obj is TConfig => {
   )
 }
 
-const getNamespace = (packageName: string, app?: string) => {
-  if (app) {
-    return `${packageName}/${app}`
+/**
+ * @deprecated Creates a namespace string from a package name and domain name.
+ * @param packageName - The package name
+ * @param domain - The domain name
+ * @returns
+ */
+export const getNamespace = (packageName: string, domain?: string) => {
+  if (domain) {
+    return `${packageName}/${domain}`
   }
   return packageName
 }
 
 // @ts-ignore
-const DoNothingFetcher: ModelInstanceFetcher = (
+export const DoNothingFetcher: ModelInstanceFetcher = (
   model: any,
   primarykey: PrimaryKeyType
 ): Promise<PrimaryKeyType> => Promise.resolve(primarykey)
@@ -189,32 +212,50 @@ const DoNothingFetcher: ModelInstanceFetcher = (
 const _convertErrorToCause = (
   error: Error,
   code: string,
-  message: string
+  message?: string
 ): ErrorObject => {
-  // Build the error details object
-  const errorObj = {
+  // Prefer an explicit message if provided, then the error's own message/name
+  const baseMessage = message || error.message || (error as any).name || code
+
+  // Prefer stack for details when available; fall back to a concise string form
+  const baseDetails =
+    error.stack ||
+    `${(error as any).name || 'Error'}: ${error.message || String(error)}`
+
+  // Start with a basic error object
+  const errorObj: ErrorObject = {
     error: {
       code,
-      message: message || error.message,
+      message: baseMessage,
+      details: baseDetails,
     },
   }
 
-  // Add details from the error
-  if (error.message) {
+  // Special handling for AggregateError (Node / JS aggregate errors)
+  const aggregateErrors = get(error, 'errors', []) as Error[]
+  if (Array.isArray(aggregateErrors) && aggregateErrors.length > 0) {
+    const innerSummaries = aggregateErrors.map(e => {
+      if (e instanceof Error) {
+        return e.stack || `${e.name}: ${e.message || String(e)}`
+      }
+      return String(e)
+    })
+
+    const innerDetails = `Inner errors:\n${innerSummaries.join('\n')}`
     return merge({}, errorObj, {
       error: {
-        details: error.message,
+        details: `${baseDetails}\n${innerDetails}`,
+        data: {
+          ...(errorObj.error as any).data,
+          aggregateErrors: innerSummaries,
+        },
       },
     })
   }
 
   // Handle nested cause if available
   if (error.cause) {
-    const causeObj = _convertErrorToCause(
-      error.cause as Error,
-      'NestedError',
-      (error.cause as Error).message
-    )
+    const causeObj = _convertErrorToCause(error.cause as Error, 'NestedError')
 
     return merge({}, errorObj, {
       error: {
@@ -222,7 +263,8 @@ const _convertErrorToCause = (
       },
     })
   }
-  // Return the final error object
+  // Not likely to ever happen
+  /* c8 ignore next */
   return errorObj
 }
 
@@ -235,7 +277,7 @@ const _convertErrorToCause = (
  * @param error - Optional error object or details (can be any type - will be properly handled)
  * @returns A standardized error object conforming to the ErrorObject type
  */
-const createErrorObject = (
+export const createErrorObject = (
   code: string,
   message: string,
   error?: unknown
@@ -258,7 +300,7 @@ const createErrorObject = (
     const errorDetails = {
       error: {
         details: error.message,
-        errorDetails: `${error}`,
+        cause: _convertErrorToCause(error, 'CauseError'),
       },
     }
     // Add cause if available
@@ -315,11 +357,27 @@ const createErrorObject = (
   })
 }
 
-const isErrorObject = (value: unknown): value is ErrorObject => {
-  return typeof value === 'object' && value !== null && 'error' in value
+export const isErrorObject = (value: unknown): value is ErrorObject => {
+  if (!value) {
+    return false
+  }
+  const error = get(value, 'error')
+  if (!error) {
+    return false
+  }
+  if (typeof error !== 'object' || error === null) {
+    return false
+  }
+  if (!('code' in error)) {
+    return false
+  }
+  if (!('message' in error)) {
+    return false
+  }
+  return true
 }
 
-const combineCrossLayerProps = (
+export const combineCrossLayerProps = (
   crossLayerPropsA: CrossLayerProps,
   crossLayerPropsB: CrossLayerProps
 ) => {
@@ -364,45 +422,111 @@ const combineCrossLayerProps = (
 }
 
 /**
+ * Zod schema for ErrorObject (exported for external validation/unions)
+ */
+export const errorObjectSchema = (): z.ZodType<ErrorObject> =>
+  z.object({
+    error: z.object({
+      code: z.string(),
+      message: z.string(),
+      details: z.string().optional(),
+      data: z.record(z.string(), z.any()).optional(),
+      trace: z.string().optional(),
+      cause: z.any().optional(),
+    }),
+  })
+
+/**
  * Creates a crossLayerProps available function that is also annotated with Zod.
  * @param props - The arguments
  * @param implementation - Your function
  * @returns A function with a "schema" property
  */
-const annotatedFunction = <
-  TProps extends JsonAble,
-  TOutput extends JsonAble | undefined,
+export const annotatedFunction = <
+  TProps extends JsonObj,
+  TOutput extends XOR<JsonObj, void>,
+  TImplementation extends NilFunction<TProps, TOutput> = NilFunction<
+    TProps,
+    TOutput
+  >,
 >(
-  props: {
-    args: ZodType<TProps>
-    returns: ZodType<Response<TOutput>>
-    description?: string
-  },
-  implementation: NilFunction<TProps, TOutput>
-): NilAnnotatedFunction<TProps, TOutput> => {
-  const fn = z
+  props: AnnotatedFunctionProps<TProps, TOutput>,
+  implementation: TImplementation
+): NilAnnotatedFunction<TProps, TOutput> & TImplementation => {
+  const base = z
     .function()
     .input([props.args, z.custom<CrossLayerProps>().optional()])
-    .output(props.returns)
+
+  const outputSchema = (() => {
+    // No returns schema: assume void
+    if (!props.returns) {
+      return z.xor([z.void(), errorObjectSchema()]) as unknown as ZodType<
+        Response<void>
+      >
+    }
+    // Build Response<returns> = returns | ErrorObject
+    return z.xor([props.returns, errorObjectSchema()]) as unknown as ZodType<
+      Response<Exclude<TOutput, void>>
+    >
+  })()
+
+  const fn = base.output(outputSchema)
   const schema = props.description ? fn.describe(props.description) : fn
-  const implemented = schema.implement(implementation)
-  // @ts-ignore
+
+  const isAsync = implementation.constructor?.name === 'AsyncFunction'
+  const implemented = isAsync
+    ? schema.implementAsync(implementation as any)
+    : schema.implement(implementation as any)
   // eslint-disable-next-line functional/immutable-data
   implemented.schema = schema
-  return implemented as unknown as NilAnnotatedFunction<TProps, TOutput>
+  // eslint-disable-next-line functional/immutable-data
+  implemented.functionName = props.functionName
+  // eslint-disable-next-line functional/immutable-data
+  implemented.domain = props.domain
+
+  return implemented as unknown as NilAnnotatedFunction<TProps, TOutput> &
+    TImplementation
 }
 
-export {
-  createErrorObject,
-  featurePassThrough,
-  getLogLevelName,
-  validateConfig,
-  getLayersUnavailable,
-  isConfig,
-  getNamespace,
-  DoNothingFetcher,
-  getLogLevelNumber,
-  isErrorObject,
-  combineCrossLayerProps,
-  annotatedFunction,
+/**
+ * Creates standardized annotation function arguments. already typed.
+ * @param args - Arguments.
+ * @returns An AnnotatedFunctionProps object.
+ */
+export const annotationFunctionProps = <
+  TProps extends JsonObj,
+  TOutput extends JsonObj | void,
+>(
+  args: AnnotatedFunctionProps<TProps, TOutput>
+) => args
+
+/**
+ * A helpful function for getting a model from a context.
+ * Very useful for services that need to get a model from their own domain.
+ * Throws an exception if the model is not found.
+ * @param context - The context
+ * @param domain - The domain of the model
+ * @param modelName - The PluralName(s) of the model
+ * @returns The model
+ */
+export const getModel = <
+  T extends DataDescription,
+  TConfig extends Config = Config,
+>(
+  context: CommonContext<TConfig>,
+  domain: string,
+  modelName: string
+): OrmModel<T> => {
+  const getter = get(
+    context,
+    `models.${domain}.getModels`
+  ) as unknown as () => Record<string, OrmModel<T>>
+  if (!getter) {
+    throw new Error(`Model ${modelName} not found in domain ${domain}`)
+  }
+  const model = getter()[modelName] as OrmModel<T>
+  if (!model) {
+    throw new Error(`Model ${modelName} not found in domain ${domain}`)
+  }
+  return model
 }

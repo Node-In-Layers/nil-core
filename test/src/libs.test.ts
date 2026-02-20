@@ -1,4 +1,5 @@
 import { assert } from 'chai'
+import { describe, it } from 'mocha'
 import z from 'zod'
 import {
   getLogLevelName,
@@ -6,11 +7,112 @@ import {
   getLayersUnavailable,
   combineCrossLayerProps,
   annotatedFunction,
+  errorObjectSchema,
+  createErrorObject,
+  isErrorObject,
+  getNamespace,
+  DoNothingFetcher,
+  annotationFunctionProps,
+  getLogLevelNumber,
+  isConfig,
 } from '../../src/libs.js'
-import { CoreNamespace } from '../../src'
+import {
+  CoreNamespace,
+  CrossLayerProps,
+  LogFormat,
+  LogLevel,
+  LogLevelNames,
+} from '../../src'
 
 describe('/src/libs.ts', () => {
+  describe('#isErrorObject()', () => {
+    it('should return true when its an actual ErrorObject', () => {
+      const errorObj = createErrorObject('CODE', 'msg')
+      assert.isTrue(isErrorObject(errorObj))
+    })
+    it('should return false if null is passed in', () => {
+      // @ts-ignore
+      assert.isFalse(isErrorObject(null))
+    })
+    it('should return false if an object is passed in with "error" but its null', () => {
+      // @ts-ignore
+      assert.isFalse(isErrorObject({ error: null }))
+    })
+    it('should return false if undefined is passed in', () => {
+      // @ts-ignore
+      assert.isFalse(isErrorObject(undefined))
+    })
+    it('should return false if an object is passed in with "error" but its undefined', () => {
+      // @ts-ignore
+      assert.isFalse(isErrorObject({ error: undefined }))
+    })
+    it('should return false if an object is passed in with "error" but its not an object', () => {
+      // @ts-ignore
+      assert.isFalse(isErrorObject({ error: 'not-an-object' }))
+    })
+    it('should return false if an object is passed in with "error" but its not a string', () => {
+      // @ts-ignore
+      assert.isFalse(isErrorObject({ error: 123 }))
+    })
+    it('should return false if an empty object is passed into error', () => {
+      // @ts-ignore
+      assert.isFalse(isErrorObject({ error: {} }))
+    })
+    it('should return false if everything is present but not code', () => {
+      const input = {
+        error: {
+          message: 'msg',
+          details: 'details',
+          data: { a: 1 },
+          trace: 'trace',
+          cause: {
+            error: {
+              code: 'CODE',
+              message: 'msg',
+            },
+          },
+        },
+      }
+      const actual = isErrorObject(input)
+      assert.isFalse(actual)
+    })
+    it('should return false if everything is present but not message', () => {
+      const input = {
+        error: {
+          code: 'CODE',
+          details: 'details',
+          data: { a: 1 },
+          trace: 'trace',
+          cause: {
+            error: {
+              code: 'CODE',
+              message: 'msg',
+            },
+          },
+        },
+      }
+      const actual = isErrorObject(input)
+      assert.isFalse(actual)
+    })
+    it('should return true if only code and message are present', () => {
+      const input = {
+        error: {
+          code: 'CODE',
+          message: 'msg',
+        },
+      }
+      const actual = isErrorObject(input)
+      assert.isTrue(actual)
+    })
+  })
   describe('#combineCrossLayerProps()', () => {
+    it('should combine when A has no logging, and B has logging', () => {
+      const a = {}
+      const b = {}
+      const expected = { logging: { ids: [] } }
+      const actual = combineCrossLayerProps(a, b)
+      assert.deepEqual(actual, expected)
+    })
     it('should combine cross layer props', () => {
       const a = {
         logging: {
@@ -22,7 +124,7 @@ describe('/src/libs.ts', () => {
           ids: [{ requestId: '4e335178-19a3-45f9-9dfe-5431bb19e616' }],
         },
       }
-      const expected = {
+      const expected: CrossLayerProps = {
         logging: {
           ids: [
             {
@@ -73,11 +175,13 @@ describe('/src/libs.ts', () => {
               {
                 name: 'testme',
               },
-              {},
+              {} as any,
             ],
             layerOrder: ['services', 'features'],
-            logFormat: 'full',
-            logLevel: 'silent',
+            logging: {
+              logFormat: LogFormat.full,
+              logLevel: LogLevelNames.silent,
+            },
           },
         })
       }, 'A configured app does not have a name')
@@ -94,8 +198,8 @@ describe('/src/libs.ts', () => {
               },
             ],
             layerOrder: ['services', 'features'],
-            logFormat: 'full',
-            logLevel: 0,
+            // @ts-ignore
+            logging: { logFormat: LogFormat.full, logLevel: 0 as any },
           },
         })
       })
@@ -111,9 +215,11 @@ describe('/src/libs.ts', () => {
                 name: 'testme',
               },
             ],
-            layerOrder: 'features',
-            logFormat: 'full',
-            logLevel: 'silent',
+            layerOrder: 'features' as any,
+            logging: {
+              logFormat: LogFormat.full,
+              logLevel: LogLevelNames.silent,
+            },
           },
         })
       })
@@ -123,14 +229,17 @@ describe('/src/libs.ts', () => {
         validateConfig({
           systemName: 'nil-core',
           environment: 'unit-test',
+          // @ts-ignore
           [CoreNamespace.root]: {
             apps: [
               {
                 name: 'testme',
               },
             ],
-            logFormat: 'full',
-            logLevel: 'silent',
+            logging: {
+              logFormat: LogFormat.full,
+              logLevel: LogLevelNames.silent,
+            },
           },
         })
       })
@@ -140,10 +249,13 @@ describe('/src/libs.ts', () => {
         validateConfig({
           systemName: 'nil-core',
           environment: 'unit-test',
+          // @ts-ignore
           [CoreNamespace.root]: {
             layerOrder: ['services', 'features'],
-            logFormat: 'full',
-            logLevel: 'silent',
+            logging: {
+              logFormat: LogFormat.full,
+              logLevel: LogLevelNames.silent,
+            },
           },
         })
       })
@@ -152,7 +264,7 @@ describe('/src/libs.ts', () => {
   describe('#getLogLevelName()', () => {
     it('should throw an exception for -1', () => {
       assert.throws(() => {
-        getLogLevelName(-1)
+        getLogLevelName(-1 as LogLevel)
       })
     })
     it('should return TRACE for 0', () => {
@@ -187,7 +299,7 @@ describe('/src/libs.ts', () => {
     })
     it('should throw an exception for 6', () => {
       assert.throws(() => {
-        getLogLevelName(6)
+        getLogLevelName(6 as LogLevel)
       })
     })
   })
@@ -293,6 +405,173 @@ describe('/src/libs.ts', () => {
       )
       // @ts-ignore
       assert.throws(() => fn({ myArgument: 123 } as any))
+    })
+    it('should support async implementations', async () => {
+      const fn = annotatedFunction(
+        {
+          args: z.object(z.any),
+          returns: z.object({ output: z.string() }),
+        },
+        async (args: any) => {
+          return { output: 'ok' }
+        }
+      )
+      const res = await fn({ something: 'ok' })
+      assert.isOk(res)
+    })
+    it('should support void outputs when returns omitted', () => {
+      const fn = annotatedFunction(
+        {
+          args: z.object({ x: z.string().optional() }),
+          // returns omitted to test void path
+        } as any,
+        (_args: any) => {
+          return undefined
+        }
+      )
+      const res = fn({})
+      assert.isUndefined(res)
+    })
+    it('should support adding a functionName', () => {
+      const fn = annotatedFunction(
+        {
+          functionName: 'myFunction',
+          domain: 'myDomain',
+          args: z.object({ myArgument: z.string() }),
+        },
+        (_args: any) => {
+          return undefined
+        }
+      )
+      const actual = fn.functionName
+      const expected = 'myFunction'
+      assert.equal(actual, expected)
+    })
+    it('should support adding a domain', () => {
+      const fn = annotatedFunction(
+        {
+          functionName: 'myFunction',
+          domain: 'myDomain',
+          args: z.object({ myArgument: z.string() }),
+        },
+        (_args: any) => {
+          return undefined
+        }
+      )
+      const actual = fn.domain
+      const expected = 'myDomain'
+      assert.equal(actual, expected)
+    })
+  })
+  describe('#createErrorObject()', () => {
+    it('should return base when no error', () => {
+      const actual = createErrorObject('CODE', 'msg')
+      assert.deepEqual(actual, { error: { code: 'CODE', message: 'msg' } })
+    })
+
+    it('should handle Error without cause', () => {
+      const err = new Error('boom')
+      const actual = createErrorObject('E', 'm', err)
+      assert.equal(actual.error.details, 'boom')
+      assert.equal(actual.error.cause?.error.message, 'boom')
+    })
+
+    it('should handle Error with nested cause', () => {
+      const inner = new Error('inner')
+      const outer: any = new Error('outer', { cause: inner })
+      const actual = createErrorObject('E2', 'outer message', outer)
+      assert.equal((actual.error.cause as any).message, 'inner')
+    })
+
+    it('should handle string error', () => {
+      const actual = createErrorObject('S', 'm', 'text error')
+      assert.equal(actual.error.details, 'text error')
+    })
+
+    it('should handle serializable object', () => {
+      const actual = createErrorObject('O', 'm', { a: 1 })
+      assert.deepEqual(actual.error.data, { a: 1 })
+    })
+
+    it('should handle arrays by stringifying', () => {
+      const actual = createErrorObject('A', 'm', [1, 2, 3])
+      assert.match((actual.error.details as string) || '', /1,2,3/)
+    })
+
+    it('should validate error shape', () => {
+      const schema = errorObjectSchema()
+      const parsed = schema.parse({ error: { code: 'C', message: 'M' } })
+      assert.deepEqual(parsed.error.code, 'C')
+    })
+    it('should identify ErrorObject via isErrorObject', () => {
+      const obj = createErrorObject('C1', 'M1')
+      assert.isTrue(isErrorObject(obj))
+      assert.isFalse(isErrorObject({ not: 'error' }))
+    })
+
+    it('should return correct namespace with and without app', () => {
+      assert.equal(getNamespace('@pkg/name'), '@pkg/name')
+      assert.equal(getNamespace('@pkg/name', 'myapp'), '@pkg/name/myapp')
+    })
+    it('should handle non-serializable objects by stringifying in createErrorObject', () => {
+      const a: any = {}
+      a.self = a // circular
+      const obj = createErrorObject('CIRC', 'cmsg', a)
+      assert.match(String(obj.error.details || ''), /\[object Object\]/)
+    })
+
+    it('should include nested cause when intermediate error has empty message', () => {
+      const innerMost = new Error('deep')
+      const middle: any = new Error('', { cause: innerMost })
+      const outer: any = new Error('outer', { cause: middle })
+      const obj = createErrorObject('OUT', 'outer-msg', outer)
+      assert.isOk((obj.error.cause as any)?.cause)
+    })
+
+    it('should return the same object', () => {
+      const args = {
+        args: z.object({ a: z.string() }),
+        returns: z.object({ b: z.string() }),
+      }
+      const res = annotationFunctionProps<any, any>(args as any)
+      assert.strictEqual(res, args)
+    })
+  })
+
+  describe('#DoNothingFetcher()', () => {
+    it('should return the provided primary key', async () => {
+      // @ts-ignore intentional any model
+      const result = await DoNothingFetcher({} as any, 123 as any)
+      assert.equal(result, 123)
+    })
+  })
+
+  describe('#errorObjectSchema()', () => {
+    it('should validate error shape', () => {
+      const schema = errorObjectSchema()
+      const parsed = schema.parse({ error: { code: 'C', message: 'M' } })
+      assert.deepEqual(parsed.error.code, 'C')
+    })
+  })
+
+  describe('#isConfig()', () => {
+    it('should return false for string input', () => {
+      assert.isFalse(isConfig('not-a-config' as any))
+    })
+    it('should return true when layerOrder exists', () => {
+      const cfg = { [CoreNamespace.root]: { layerOrder: ['services'] } } as any
+      assert.isTrue(isConfig(cfg))
+    })
+  })
+
+  describe('#getLogLevelNumber()', () => {
+    it('should map trace to TRACE', () => {
+      const num = getLogLevelNumber(LogLevelNames.trace)
+      assert.equal(num, LogLevel.TRACE)
+    })
+    it('should throw for unknown log level name', () => {
+      // @ts-ignore
+      assert.throws(() => getLogLevelNumber('unknown'))
     })
   })
 })

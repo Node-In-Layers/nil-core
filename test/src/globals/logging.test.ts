@@ -18,6 +18,7 @@ import {
   LogMessage,
 } from '../../../src/types.js'
 import { JsonObj } from 'functional-models'
+import { createErrorObject } from '../../../src/libs.js'
 
 // Utility to create a mock context
 const _getMockLogger = (context = undefined) => {
@@ -66,14 +67,14 @@ describe('/src/globals/logging.ts', () => {
         datetime: new Date('2025-01-01T00:00:00Z'),
         logLevel: LogLevelNames.info,
         message: 'Test message',
-        logger: 'test',
+        logger: 'test:domain:layer:function',
         environment: 'test',
       }
       consoleLogSimple(logMessage)
       assert.isTrue(consoleSpy.calledOnce)
       assert.equal(
         consoleSpy.firstCall.args[0],
-        '2025-01-01T00:00:00.000Z: Test message'
+        '2025-01-01T00:00:00.000Z: function Test message'
       )
     })
   })
@@ -324,7 +325,7 @@ describe('/src/globals/logging.ts', () => {
       await logger.info('Test')
       assert.equal(consoleSpy.callCount, 3)
       //assert.equal(consoleSpy.firstCall.args[0], `${new Date('2025-04-010Z').toISOString()}: Test`)
-      assert.match(consoleSpy.firstCall.args[0], /.*: Test/)
+      assert.match(consoleSpy.firstCall.args[0], /.*: root Test/)
       assert.match(consoleSpy.secondCall.args[0], /.* test info .*/)
       assert.isOk(consoleSpy.thirdCall.args[0])
       assert.isOk(axiosRequest.getCall(0).args[0])
@@ -344,6 +345,27 @@ describe('/src/globals/logging.ts', () => {
         const rootLogger = logger.getLogger(context)
         rootLogger.info('Should not log')
         assert.isFalse(mockLogMethod.called)
+      })
+
+      it('should respect ignoreSizeLimit', () => {
+        const { context, logger, mockLogMethod } = _getMockLogger({
+          config: {
+            [CoreNamespace.root]: {
+              logging: { logLevel: LogLevelNames.info },
+            },
+          },
+        })
+        const rootLogger = logger.getLogger(context)
+        rootLogger.info(
+          'Should log',
+          { extra: 'really long information that you ACTUALLY want' },
+          { ignoreSizeLimit: true }
+        )
+        assert.isTrue(mockLogMethod.called)
+        assert.equal(
+          mockLogMethod.firstCall.args[0].extra,
+          'really long information that you ACTUALLY want'
+        )
       })
 
       it('should filter logs below log level', () => {
@@ -496,15 +518,32 @@ describe('/src/globals/logging.ts', () => {
                   'Function failed with an exception',
                   'Error message mismatch'
                 )
-                assert.deepEqual(
-                  calls[1].args[0].error,
-                  {
-                    code: 'INTERNAL_ERROR',
-                    details: 'Sync failure',
-                    errorDetails: 'Error: Sync failure',
-                    message: 'Layer function features:myFunction',
-                  },
-                  'Expected error object'
+                const err = calls[1].args[0].error
+                assert.equal(err.code, 'INTERNAL_ERROR', 'error.code')
+                assert.equal(
+                  err.message,
+                  'Layer function features:myFunction',
+                  'error.message'
+                )
+                assert.ok(
+                  typeof err.details === 'string' &&
+                    err.details.startsWith('Sync failure'),
+                  'error.details should start with Sync failure'
+                )
+                assert.equal(
+                  err.cause?.error?.code,
+                  'CauseError',
+                  'cause.error.code'
+                )
+                assert.equal(
+                  err.cause?.error?.message,
+                  'Sync failure',
+                  'cause.error.message'
+                )
+                assert.ok(
+                  typeof err.cause?.error?.details === 'string' &&
+                    err.cause.error.details.startsWith('Error: Sync failure'),
+                  'cause.error.details should start with Error: Sync failure'
                 )
                 assert.instanceOf(e, Error, 'Expected an Error object')
                 assert.equal(
@@ -596,15 +635,32 @@ describe('/src/globals/logging.ts', () => {
                   'Function failed with an exception',
                   'Error message mismatch'
                 )
-                assert.deepEqual(
-                  calls[1].args[0].error,
-                  {
-                    code: 'INTERNAL_ERROR',
-                    details: 'Async failure',
-                    errorDetails: 'Error: Async failure',
-                    message: 'Layer function features:myFunction',
-                  },
-                  'Expected error object'
+                const err = calls[1].args[0].error
+                assert.equal(err.code, 'INTERNAL_ERROR', 'error.code')
+                assert.equal(
+                  err.message,
+                  'Layer function features:myFunction',
+                  'error.message'
+                )
+                assert.ok(
+                  typeof err.details === 'string' &&
+                    err.details.startsWith('Async failure'),
+                  'error.details should start with Async failure'
+                )
+                assert.equal(
+                  err.cause?.error?.code,
+                  'CauseError',
+                  'cause.error.code'
+                )
+                assert.equal(
+                  err.cause?.error?.message,
+                  'Async failure',
+                  'cause.error.message'
+                )
+                assert.ok(
+                  typeof err.cause?.error?.details === 'string' &&
+                    err.cause.error.details.startsWith('Error: Async failure'),
+                  'cause.error.details should start with Error: Async failure'
                 )
                 assert.instanceOf(e, Error, 'Expected an Error object')
                 assert.equal(
@@ -783,11 +839,13 @@ describe('/src/globals/logging.ts', () => {
       it('should log error object correctly', () => {
         const { context, logger, mockLogMethod } = _getMockLogger()
         const log = logger.getLogger(context)
-        log.error('Test', { error: new Error('Oops') })
-        assert.deepEqual(
-          mockLogMethod.firstCall.args[0].error,
+        const errorObj = createErrorObject(
+          'INTERNAL_ERROR',
+          'Unknown error',
           new Error('Oops')
         )
+        log.error('Test', errorObj)
+        assert.deepEqual(mockLogMethod.firstCall.args[0].error, errorObj.error)
       })
     })
 
