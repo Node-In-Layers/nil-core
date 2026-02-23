@@ -674,7 +674,7 @@ describe('/src/layers.ts', () => {
         const inputs = _setup(config)
         const instance = features.create(inputs)
         const context = await instance.loadLayers()
-        const actual = context.features.app2.getFeature1()
+        const actual = await context.features.app2.getFeature1()
         const expected = {
           myOutput: true,
         }
