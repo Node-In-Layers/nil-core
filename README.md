@@ -7,7 +7,7 @@
 
 Rapid, batteries included, opinionated web development with functional node.
 
-(Extensive Documentation)[https://node-in-layers.github.io/nil-core/]
+[Extensive Documentation](https://node-in-layers.github.io/nil-core/)
 
 ## The Batteries Included
 
