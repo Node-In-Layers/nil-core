@@ -14,10 +14,10 @@
     "nil-core-knowledge-mcp": "./bin/mcp_server.js"
   },
   "dependencies": {
-    "argparse": "^2.0.1",
-    "es-main": "^1.4.0",
     "@node-in-layers/core": "file:..",
     "@node-in-layers/mcp-server": "^2.2.6",
+    "argparse": "^2.0.1",
+    "es-main": "^1.4.0",
     "lodash": "^4.17.21",
     "zod": "^4.1.12"
   },

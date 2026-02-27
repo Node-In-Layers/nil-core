@@ -1,4 +1,6 @@
+import * as chai from 'chai'
 import { assert } from 'chai'
+import asPromised from 'chai-as-promised'
 import { describe, it } from 'mocha'
 import z from 'zod'
 import {
@@ -23,6 +25,8 @@ import {
   LogLevel,
   LogLevelNames,
 } from '../../src'
+
+chai.use(asPromised)
 
 describe('/src/libs.ts', () => {
   describe('#isErrorObject()', () => {
@@ -106,6 +110,27 @@ describe('/src/libs.ts', () => {
     })
   })
   describe('#combineCrossLayerProps()', () => {
+    it('should be able to handle extended cross layer props types', () => {
+      const normal = {
+        logging: {
+          ids: [{ requestId: '123' }],
+        },
+      }
+      const extended = {
+        requestInfo: {
+          requestId: '123',
+        },
+      }
+      const actual = combineCrossLayerProps(normal, extended)
+      assert.deepEqual(actual, {
+        logging: {
+          ids: [{ requestId: '123' }],
+        },
+        requestInfo: {
+          requestId: '123',
+        },
+      })
+    })
     it('should combine when A has no logging, and B has logging', () => {
       const a = {}
       const b = {}
@@ -347,7 +372,7 @@ describe('/src/libs.ts', () => {
       assert.equal(fn.schema.description, description)
     })
 
-    it('executes via direct call', () => {
+    it('executes via direct call', async () => {
       const fn = annotatedFunction(
         {
           description: 'Test annotated function',
@@ -358,11 +383,11 @@ describe('/src/libs.ts', () => {
           output: `Hello ${args.myArgument}`,
         })
       )
-      const direct = fn({ myArgument: 'World' })
+      const direct = await fn({ myArgument: 'World' })
       assert.deepEqual(direct, { output: 'Hello World' })
     })
 
-    it('allows calling without crossLayerProps', () => {
+    it('allows calling without crossLayerProps', async () => {
       const fn = annotatedFunction(
         {
           args: z.object({ myArgument: z.string() }),
@@ -372,11 +397,11 @@ describe('/src/libs.ts', () => {
           output: `Hello ${args.myArgument}`,
         })
       )
-      const withoutProps = fn({ myArgument: 'A' })
+      const withoutProps = await fn({ myArgument: 'A' })
       assert.deepEqual(withoutProps, { output: 'Hello A' })
     })
 
-    it('accepts crossLayerProps as the second argument', () => {
+    it('accepts crossLayerProps as the second argument', async () => {
       const fn = annotatedFunction(
         {
           args: z.object({ myArgument: z.string() }),
@@ -386,14 +411,14 @@ describe('/src/libs.ts', () => {
           output: `Hello ${args.myArgument}`,
         })
       )
-      const withProps = fn(
+      const withProps = await fn(
         { myArgument: 'B' },
         { logging: { ids: [{ requestId: 'req-1' }] } }
       )
       assert.deepEqual(withProps, { output: 'Hello B' })
     })
 
-    it('implemented wrapper validates input and throws for invalid args', () => {
+    it('implemented wrapper validates input and throws for invalid args', async () => {
       const fn = annotatedFunction(
         {
           args: z.object({ myArgument: z.string() }),
@@ -403,8 +428,7 @@ describe('/src/libs.ts', () => {
           output: `Hello ${args.myArgument}`,
         })
       )
-      // @ts-ignore
-      assert.throws(() => fn({ myArgument: 123 } as any))
+      assert.isRejected(fn({ myArgument: 123 } as any))
     })
     it('should support async implementations', async () => {
       const fn = annotatedFunction(
@@ -419,7 +443,7 @@ describe('/src/libs.ts', () => {
       const res = await fn({ something: 'ok' })
       assert.isOk(res)
     })
-    it('should support void outputs when returns omitted', () => {
+    it('should support void outputs when returns omitted', async () => {
       const fn = annotatedFunction(
         {
           args: z.object({ x: z.string().optional() }),
@@ -429,7 +453,7 @@ describe('/src/libs.ts', () => {
           return undefined
         }
       )
-      const res = fn({})
+      const res = await fn({})
       assert.isUndefined(res)
     })
     it('should support adding a functionName', () => {

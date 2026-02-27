@@ -1,4 +1,5 @@
 dist/
+buildDocs/
 ./features/data/collector/
 build/
 node_modules/

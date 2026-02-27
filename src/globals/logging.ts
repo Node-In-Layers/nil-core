@@ -6,7 +6,12 @@ import safeJson from 'safe-json-value'
 import axios from 'axios'
 import { v4 } from 'uuid'
 import { JsonAble } from 'functional-models'
-import { createErrorObject, getLogLevelNumber, isErrorObject } from '../libs.js'
+import {
+  createCrossLayerProps,
+  createErrorObject,
+  getLogLevelNumber,
+  isErrorObject,
+} from '../libs.js'
 import {
   CommonContext,
   Config,
@@ -265,12 +270,12 @@ const _layerLogger = <TConfig extends Config = Config>(
         })
         // eslint-disable-next-line functional/no-try-statements
         try {
-          // @ts-ignore
-          const result = func(funcLogger, ...argsNoCrossLayer, {
-            logging: {
-              ids: funcLogger.getIds(),
-            },
-          })
+          const result = func(
+            funcLogger,
+            // @ts-ignore
+            ...argsNoCrossLayer,
+            createCrossLayerProps(funcLogger, crossLayer)
+          )
           if (_isPromise(result)) {
             return result
               .then(r => {

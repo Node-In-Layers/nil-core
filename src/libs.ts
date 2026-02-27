@@ -25,6 +25,8 @@ import {
   XOR,
   AnnotatedFunctionProps,
   CommonContext,
+  Logger,
+  SyncNilFunction,
 } from './types.js'
 
 export const featurePassThrough = wrap
@@ -377,10 +379,21 @@ export const isErrorObject = (value: unknown): value is ErrorObject => {
   return true
 }
 
-export const combineCrossLayerProps = (
-  crossLayerPropsA: CrossLayerProps,
-  crossLayerPropsB: CrossLayerProps
+export const createCrossLayerProps = (
+  logger: Logger,
+  crossLayerProps?: CrossLayerProps
 ) => {
+  const ids = logger.getIds()
+  return combineCrossLayerProps(crossLayerProps || {}, { logging: { ids } })
+}
+
+export const combineCrossLayerProps = <
+  TIn1 extends CrossLayerProps,
+  TIn2 extends CrossLayerProps = CrossLayerProps,
+>(
+  crossLayerPropsA: TIn1,
+  crossLayerPropsB: TIn2
+): TIn1 & TIn2 => {
   const loggingData = crossLayerPropsA.logging || {}
   const ids = loggingData.ids || []
   const currentIds = crossLayerPropsB.logging?.ids || []
@@ -411,14 +424,16 @@ export const combineCrossLayerProps = (
   )
 
   const finalIds = ids.concat(unique)
-  return {
+  const otherPropsA = omit(crossLayerPropsA, 'logging')
+  const otherPropsB = omit(crossLayerPropsB, 'logging')
+  return merge({}, otherPropsA, otherPropsB, {
     logging: merge(
       {
         ids: finalIds,
       },
-      omit(loggingData, 'ids')
+      loggingData
     ),
-  }
+  }) as TIn1 & TIn2
 }
 
 /**
@@ -440,15 +455,15 @@ export const errorObjectSchema = (): z.ZodType<ErrorObject> =>
  * Creates a crossLayerProps available function that is also annotated with Zod.
  * @param props - The arguments
  * @param implementation - Your function
- * @returns A function with a "schema" property
+ * @returns A function with a "schema" property. NOTE: This will take a sync function and turn it into an async function.
  */
 export const annotatedFunction = <
   TProps extends JsonObj,
   TOutput extends XOR<JsonObj, void>,
-  TImplementation extends NilFunction<TProps, TOutput> = NilFunction<
-    TProps,
-    TOutput
-  >,
+  TImplementation extends XOR<
+    NilFunction<TProps, TOutput>,
+    SyncNilFunction<TProps, TOutput>
+  > = NilFunction<TProps, TOutput>,
 >(
   props: AnnotatedFunctionProps<TProps, TOutput>,
   implementation: TImplementation
@@ -473,14 +488,18 @@ export const annotatedFunction = <
   const fn = base.output(outputSchema)
   const schema = props.description ? fn.describe(props.description) : fn
 
-  const isAsync = implementation.constructor?.name === 'AsyncFunction'
-  const implemented = isAsync
-    ? schema.implementAsync(implementation as any)
-    : schema.implement(implementation as any)
+  const implemented = schema.implementAsync(async (...args: any[]) => {
+    // @ts-ignore
+    const result = await implementation(...args)
+    return result
+  })
+  // @ts-ignore
   // eslint-disable-next-line functional/immutable-data
   implemented.schema = schema
+  // @ts-ignore
   // eslint-disable-next-line functional/immutable-data
   implemented.functionName = props.functionName
+  // @ts-ignore
   // eslint-disable-next-line functional/immutable-data
   implemented.domain = props.domain
 

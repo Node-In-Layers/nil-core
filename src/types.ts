@@ -1016,8 +1016,8 @@ export type TrueMaybePromise<T> = XOR<Promise<T>, T>
  * Response<T> for non-void; void stays void. Supports sync/async via MaybePromise.
  */
 export type NilFunctionReturn<TOutput> = [TOutput] extends [void]
-  ? TrueMaybePromise<void>
-  : TrueMaybePromise<Response<TOutput>>
+  ? Promise<void>
+  : Promise<Response<TOutput>>
 
 /**
  * A node in layer function. This standardized function takes all its arguments via a props object, and then it takes an optional
@@ -1030,6 +1030,14 @@ export type NilFunction<
   props: TProps,
   crossLayerProps?: CrossLayerProps
 ) => NilFunctionReturn<TOutput>
+
+export type SyncNilFunction<
+  TProps extends JsonObj,
+  TOutput extends XOR<JsonObj, void>,
+> = (
+  props: TProps,
+  crossLayerProps?: CrossLayerProps
+) => XOR<Response<TOutput>, void>
 
 /**
  * A node in layer function that has been annotated with a schema.

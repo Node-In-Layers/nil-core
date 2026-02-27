@@ -23,7 +23,11 @@ import {
   PartialModelProps,
   ServicesContext,
 } from './types.js'
-import { DoNothingFetcher, getLayersUnavailable } from './libs.js'
+import {
+  createCrossLayerProps,
+  DoNothingFetcher,
+  getLayersUnavailable,
+} from './libs.js'
 import { memoizeValueSync } from './utils.js'
 import { ModelCrudsFunctions } from './models/types.js'
 import { OtelServicesLayer } from './otel/types.js'
@@ -408,7 +412,6 @@ const features = {
           log: layerLogger,
         })
       )
-      const loggerIds = layerLogger.getIds()
       const ignoreLayerFunctions = merge(
         commonContext.config[CoreNamespace.root].logging
           ?.ignoreLayerFunctions || {},
@@ -460,11 +463,7 @@ const features = {
                     // @ts-ignore
                     return func(
                       ...argsNoCrossLayer,
-                      crossLayer || {
-                        logging: {
-                          ids: loggerIds,
-                        },
-                      }
+                      createCrossLayerProps(layerLogger, crossLayer)
                     )
                   }, func)
                   return merge(acc3, { [propertyName]: newFunc })
@@ -525,12 +524,7 @@ const features = {
                   // @ts-ignore
                   return func(
                     ...argsNoCrossLayer,
-                    crossLayer || {
-                      // create cross layer args.
-                      logging: {
-                        ids: log.getIds(),
-                      },
-                    }
+                    createCrossLayerProps(log, crossLayer)
                   )
                 }, func)
               ),
@@ -581,7 +575,6 @@ const features = {
           layer
         )
 
-        const loggerIds = layerLogger.getIds()
         const ignoreLayerFunctions =
           commonContext.config[CoreNamespace.root].logging
             ?.ignoreLayerFunctions || {}
@@ -627,11 +620,7 @@ const features = {
                       // @ts-ignore
                       return func(
                         ...argsNoCrossLayer,
-                        crossLayer || {
-                          logging: {
-                            ids: loggerIds,
-                          },
-                        }
+                        createCrossLayerProps(layerLogger, crossLayer)
                       )
                     }, func)
                     return merge(acc3, { [propertyName]: newFunc })
@@ -691,12 +680,7 @@ const features = {
                     // @ts-ignore
                     return func(
                       ...argsNoCrossLayer,
-                      crossLayer || {
-                        // create cross layer args.
-                        logging: {
-                          ids: log.getIds(),
-                        },
-                      }
+                      createCrossLayerProps(log, crossLayer)
                     )
                   }, func)
                 ),

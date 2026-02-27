@@ -3,6 +3,7 @@ import {
   FeaturesContext,
   annotatedFunction,
   NilFunction,
+  SyncNilFunction,
 } from '@node-in-layers/core'
 import {
   KnowledgeServicesLayer,
@@ -25,7 +26,8 @@ export const create = (
 ): KnowledgeFeatures => {
   const getKnowledgeEntries = annotatedFunction<
     GetKnowledgeProps,
-    GetKnowledgeOutput
+    GetKnowledgeOutput,
+    SyncNilFunction<GetKnowledgeProps, GetKnowledgeOutput>
   >(
     {
       functionName: 'getKnowledgeEntries',

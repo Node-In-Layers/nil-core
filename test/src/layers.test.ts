@@ -659,6 +659,50 @@ const _setup = (config?: Config) => {
 
 const annotatedFunctionConfig = () => {}
 
+const crossLayerPropsPreservationConfig = () => {
+  let capturedFromService: any = null
+  let capturedFromContextService: any = null
+
+  const app1Services = {
+    create: sinon.stub().returns({
+      captureProps: (_args: any, crossLayerProps: any) => {
+        capturedFromService = crossLayerProps
+        return 'ok'
+      },
+    }),
+  }
+
+  const app2Services = {
+    create: sinon.stub().callsFake(context => ({
+      proxyToApp1: (_args: any, crossLayerProps: any) => {
+        return context.services
+          .getServices('app1')
+          ['captureProps']({ proxied: true }, crossLayerProps)
+      },
+    })),
+  }
+
+  const app1 = { name: 'app1', services: app1Services }
+  const app2 = { name: 'app2', services: app2Services }
+
+  return {
+    config: {
+      environment: 'unit-test',
+      systemName: 'nil-core',
+      [CoreNamespace.root]: {
+        apps: [app1, app2],
+        layerOrder: ['services', 'features'],
+        logging: {
+          logFormat: LogFormat.full,
+          logLevel: LogLevelNames.trace,
+        },
+      },
+    },
+    getCapturedFromService: () => capturedFromService,
+    getCapturedFromContextService: () => capturedFromContextService,
+  }
+}
+
 describe('/src/layers.ts', () => {
   describe('#features.create()', () => {
     describe('#loadLayers()', () => {
@@ -674,7 +718,7 @@ describe('/src/layers.ts', () => {
         const inputs = _setup(config)
         const instance = features.create(inputs)
         const context = await instance.loadLayers()
-        const actual = context.features.app2.getFeature1()
+        const actual = await context.features.app2.getFeature1()
         const expected = {
           myOutput: true,
         }
@@ -938,6 +982,59 @@ describe('/src/layers.ts', () => {
         const instance = features.create(inputs)
         const promise = instance.loadLayers()
         return assert.isRejected(promise)
+      })
+      describe('cross-layer props preservation through layer wrapping', () => {
+        it('should pass extended cross-layer props through to a wrapped service function', async () => {
+          const { config, getCapturedFromService } =
+            crossLayerPropsPreservationConfig()
+          const inputs = _setup(config)
+          const instance = features.create(inputs)
+          const layers = await instance.loadLayers()
+
+          layers.services.app1.captureProps(
+            { some: 'arg' },
+            {
+              logging: { ids: [{ requestId: '123' }] },
+              requestInfo: { requestId: 'abc-123' },
+            }
+          )
+
+          assert.deepEqual(getCapturedFromService()?.requestInfo, {
+            requestId: 'abc-123',
+          })
+        })
+
+        it('should inject logging ids when no cross-layer props are passed to a wrapped service function', async () => {
+          const { config, getCapturedFromService } =
+            crossLayerPropsPreservationConfig()
+          const inputs = _setup(config)
+          const instance = features.create(inputs)
+          const layers = await instance.loadLayers()
+
+          layers.services.app1.captureProps({ some: 'arg' })
+
+          assert.isArray(getCapturedFromService()?.logging?.ids)
+        })
+
+        it('should pass extended cross-layer props through the context.services wrapper when one domain calls another', async () => {
+          const { config, getCapturedFromService } =
+            crossLayerPropsPreservationConfig()
+          const inputs = _setup(config)
+          const instance = features.create(inputs)
+          const layers = await instance.loadLayers()
+
+          layers.services.app2.proxyToApp1(
+            { some: 'arg' },
+            {
+              logging: { ids: [{ requestId: '456' }] },
+              requestInfo: { requestId: 'xyz-789' },
+            }
+          )
+
+          assert.deepEqual(getCapturedFromService()?.requestInfo, {
+            requestId: 'xyz-789',
+          })
+        })
       })
     })
   })
