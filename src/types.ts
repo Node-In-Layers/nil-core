@@ -15,6 +15,11 @@ import {
   ForeignKeyProperty,
 } from 'functional-models'
 
+/**
+ * A constructor provided by a domain's model module for creating {@link ModelType} instances.
+ * This is the type used for entries in {@link App.models}.
+ * @interface
+ */
 export type ModelConstructor = Readonly<{
   create: <
     T extends DataDescription,
@@ -111,6 +116,9 @@ export enum LogFormat {
    * Forwards log messages to the OpenTelemetry Logs API (e.g. when logging.otel is configured).
    */
   otel = 'otel',
+  /**
+   * Logs datetime, environment, logLevel, id, logger, ids, and message as a single formatted string.
+   */
   full = 'full',
 }
 
@@ -155,7 +163,13 @@ export type ErrorObject = Readonly<{
  * @interface
  */
 export type CrossLayerProps<T extends object = object> = Readonly<{
+  /**
+   * Optional logging context to propagate through layer calls.
+   */
   logging?: {
+    /**
+     * A stack of {@link LogId} objects carrying trace context across layer boundaries.
+     */
     ids?: readonly LogId[]
   }
 }> &
@@ -178,7 +192,6 @@ export type CrossLayerProps<T extends object = object> = Readonly<{
  *   myFunc: (myArg: strinng, crossLayerProps) => Promise<string>
  * }
  * ```
- * @interface
  */
 export type LayerFunction<T extends (...args: any[]) => any> = T extends (
   ...args: infer Args
@@ -285,11 +298,16 @@ export type LayerLogger = Logger &
   }>
 
 /**
- * A logger for an domain.
+ * A logger scoped to a domain. Provides access to layer-level loggers for each layer within the domain.
  * @interface
  */
 export type AppLogger = Logger &
   Readonly<{
+    /**
+     * Creates a {@link LayerLogger} scoped to a specific layer within the domain.
+     * @param layerName - The name of the layer (e.g. services, features).
+     * @param crossLayerProps - Optional cross-layer props used to propagate logging context.
+     */
     getLayerLogger: (
       layerName: CommonLayerName | string,
       crossLayerProps?: CrossLayerProps
@@ -298,6 +316,9 @@ export type AppLogger = Logger &
 
 type GetAppLogger = (domainName: string) => AppLogger
 
+/**
+ * Standard names for common layers within a domain.
+ */
 export enum CommonLayerName {
   models = 'models',
   services = 'services',
@@ -314,10 +335,20 @@ export type LogInstanceOptions = Readonly<{
 
 /**
  * A wrapper around an object that needs to be explicitly initialized before use.
+ * @interface
  */
 export type RequiresInitialization<T> = Readonly<{
+  /**
+   * Returns whether the instance has been initialized yet.
+   */
   isInitialized: () => boolean
+  /**
+   * Returns the initialized instance. Throws if not yet initialized.
+   */
   getInstance: () => T
+  /**
+   * Performs initialization. Must be called before {@link RequiresInitialization.getInstance}.
+   */
   initialize: () => Promise<void>
 }>
 
@@ -392,8 +423,17 @@ export type Logger = Readonly<{
   getIds: () => readonly LogId[]
 }>
 
+/**
+ * A top-level logger that can vend domain-scoped {@link AppLogger} instances.
+ * This is the logger returned by {@link RootLogger.getLogger}.
+ * @interface
+ */
 export type HighLevelLogger = Logger &
   Readonly<{
+    /**
+     * Creates an {@link AppLogger} scoped to a specific domain.
+     * @param domainName - The name of the domain.
+     */
     getAppLogger: GetAppLogger
   }>
 
@@ -500,7 +540,8 @@ export type PrimaryKeyPropertyGetter = <
 ) => ReturnType<typeof PrimaryKeyProperty<T>>
 
 /**
- *
+ * A helper function type that creates a {@link ForeignKeyProperty} for a model,
+ * using the system configuration to determine the appropriate data type and primary key generator.
  */
 export type ForeignKeyPropertyGetter = <
   T extends PrimaryKeyType = PrimaryKeyType,
@@ -602,6 +643,10 @@ export type LayerServicesLayer = {
   }
 }
 
+/**
+ * Describes a layer in the system's layer order. A string names a single layer;
+ * an array of strings defines a composite layer made up of multiple sub-layers loaded together.
+ */
 export type LayerDescription = string | readonly string[]
 
 /**
@@ -849,7 +894,8 @@ export type CommonContext<TConfig extends Config = Config> = Readonly<{
 }>
 
 /**
- * The context for a layer
+ * The context for a layer. Extends {@link CommonContext} with a layer-scoped {@link LayerLogger}.
+ * @interface
  */
 export type LayerContext<
   TConfig extends Config = Config,
@@ -987,14 +1033,21 @@ export type FeaturesLayerFactory<
 }>
 
 /**
- * Describes a complete system, with services and features.
+ * Describes a complete loaded system, including config, constants, services, and features.
+ * @interface
  */
 export type System<
   TConfig extends Config = Config,
   TServices extends object = object,
   TFeatures extends object = object,
 > = CommonContext<TConfig> & {
+  /**
+   * All initialized services, keyed by namespace.
+   */
   services: TServices
+  /**
+   * All initialized features, keyed by namespace.
+   */
   features: TFeatures
 }
 
@@ -1009,6 +1062,9 @@ export type XOR<T, U> = T | U extends object
  */
 export type Response<R> = XOR<R, ErrorObject>
 
+/**
+ * Exclusive version of {@link MaybePromise}: exactly one of `Promise<T>` or `T` (never both simultaneously).
+ */
 export type TrueMaybePromise<T> = XOR<Promise<T>, T>
 
 /**
@@ -1031,6 +1087,10 @@ export type NilFunction<
   crossLayerProps?: CrossLayerProps
 ) => NilFunctionReturn<TOutput>
 
+/**
+ * A synchronous variant of {@link NilFunction}. Takes a props object and optional
+ * {@link CrossLayerProps}, and returns either a {@link Response} or void.
+ */
 export type SyncNilFunction<
   TProps extends JsonObj,
   TOutput extends XOR<JsonObj, void>,

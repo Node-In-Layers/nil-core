@@ -3,14 +3,28 @@ import { v4 } from 'uuid'
 import AsyncLock from 'async-lock'
 import type { RequiresInitialization } from './types.js'
 
+/**
+ * Wraps a function so that the returned wrapper carries all properties of the original function.
+ * This allows metadata (e.g. schema, name) attached to `fn` to remain accessible on the wrapper.
+ * @param fn - The function to wrap.
+ */
 export const wrap = <T extends Array<any>, U>(fn: (...args: T) => U) => {
   return merge((...args: T): U => fn(...args), fn)
 }
 
+/**
+ * Type guard that returns `true` if the given value is a Promise (has a `.then` method).
+ * @param obj - The value to test.
+ */
 export const isPromise = <T>(obj: any): obj is Promise<T> => {
   return Boolean(obj && obj.then)
 }
 
+/**
+ * Wraps a sync-or-async function so it always returns a `Promise`, while preserving the
+ * original function's properties on the returned wrapper.
+ * @param fn - The function to wrap.
+ */
 export const promiseWrap = <T extends Array<any>, U>(
   fn: (...args: T) => Promise<U> | U
 ) => {
@@ -20,6 +34,12 @@ export const promiseWrap = <T extends Array<any>, U>(
   )
 }
 
+/**
+ * Memoizes a synchronous function so it is only called once; subsequent calls return the cached value.
+ * If the first call throws, the error propagates and the function is NOT marked as called,
+ * so a subsequent call will retry.
+ * @param method - The function to memoize.
+ */
 export const memoizeValueSync = <T, A extends Array<any>>(
   method: (...args: A) => T
 ) => {
@@ -40,6 +60,11 @@ export const memoizeValueSync = <T, A extends Array<any>>(
   /* eslint-enable functional/no-let */
 }
 
+/**
+ * Memoizes an async (or sync-or-async) function so it is only called once; subsequent calls
+ * return the cached resolved value. Uses an async lock to prevent concurrent initialization.
+ * @param method - The function to memoize.
+ */
 export const memoizeValue = <T, A extends Array<any>>(
   method: (...args: A) => T | Promise<T>
 ): ((...args: A) => Promise<T>) => {
