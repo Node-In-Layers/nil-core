@@ -270,9 +270,9 @@ const _layerLogger = <TConfig extends Config = Config>(
         })
         // eslint-disable-next-line functional/no-try-statements
         try {
-          // @ts-ignore
           const result = func(
             funcLogger,
+            // @ts-ignore
             ...argsNoCrossLayer,
             createCrossLayerProps(funcLogger, crossLayer)
           )
