@@ -461,6 +461,52 @@ describe('/src/globals/logging.ts', () => {
               assert.isOk(actual)
             })
 
+            it('should pass extended cross-layer props to the inner function', () => {
+              const { context, logger } = _getMockLogger()
+              let receivedCrossLayer: any
+              const wrappedFunc = logger
+                .getLogger(context)
+                .getAppLogger('myApp')
+                .getLayerLogger('features')
+                ._logWrapSync(
+                  'myFunction',
+                  (log, args: object, crossLayer: any) => {
+                    receivedCrossLayer = crossLayer
+                  }
+                )
+
+              wrappedFunc(
+                { my: 'args' },
+                {
+                  logging: { ids: [{ my: 'crossLayer' }] },
+                  requestInfo: { requestId: 'abc-123' },
+                }
+              )
+
+              assert.deepEqual(receivedCrossLayer?.requestInfo, {
+                requestId: 'abc-123',
+              })
+            })
+
+            it('should inject logging ids into crossLayerProps when none are passed', () => {
+              const { context, logger } = _getMockLogger()
+              let receivedCrossLayer: any
+              const wrappedFunc = logger
+                .getLogger(context)
+                .getAppLogger('myApp')
+                .getLayerLogger('features')
+                ._logWrapSync(
+                  'myFunction',
+                  (log, args: object, crossLayer: any) => {
+                    receivedCrossLayer = crossLayer
+                  }
+                )
+
+              wrappedFunc({ my: 'args' })
+
+              assert.isArray(receivedCrossLayer?.logging?.ids)
+            })
+
             it('should create two info messages when run and one debug when its a feature layer', () => {
               const { context, logger, mockLogMethod } = _getMockLogger()
               const wrappedFunc = logger
@@ -577,6 +623,55 @@ describe('/src/globals/logging.ts', () => {
                 .args[0].ids.find(x => 'my' in x)
               assert.isOk(actual)
             })
+
+            it('should pass extended cross-layer props to the inner function', async () => {
+              const { context, logger } = _getMockLogger()
+              let receivedCrossLayer: any
+              const wrappedFunc = logger
+                .getLogger(context)
+                .getAppLogger('myApp')
+                .getLayerLogger('features')
+                ._logWrapAsync(
+                  'myFunction',
+                  async (log, args: object, crossLayer: any) => {
+                    receivedCrossLayer = crossLayer
+                    return {}
+                  }
+                )
+
+              await wrappedFunc(
+                { my: 'args' },
+                {
+                  logging: { ids: [{ my: 'crossLayer' }] },
+                  requestInfo: { requestId: 'abc-123' },
+                }
+              )
+
+              assert.deepEqual(receivedCrossLayer?.requestInfo, {
+                requestId: 'abc-123',
+              })
+            })
+
+            it('should inject logging ids into crossLayerProps when none are passed', async () => {
+              const { context, logger } = _getMockLogger()
+              let receivedCrossLayer: any
+              const wrappedFunc = logger
+                .getLogger(context)
+                .getAppLogger('myApp')
+                .getLayerLogger('features')
+                ._logWrapAsync(
+                  'myFunction',
+                  async (log, args: object, crossLayer: any) => {
+                    receivedCrossLayer = crossLayer
+                    return {}
+                  }
+                )
+
+              await wrappedFunc({ my: 'args' })
+
+              assert.isArray(receivedCrossLayer?.logging?.ids)
+            })
+
             it('should create two info messages when run and one debug when its a feature layer', async () => {
               const { context, logger, mockLogMethod } = _getMockLogger()
               const wrappedFunc = logger

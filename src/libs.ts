@@ -25,6 +25,7 @@ import {
   XOR,
   AnnotatedFunctionProps,
   CommonContext,
+  Logger,
   SyncNilFunction,
 } from './types.js'
 
@@ -378,10 +379,21 @@ export const isErrorObject = (value: unknown): value is ErrorObject => {
   return true
 }
 
-export const combineCrossLayerProps = (
-  crossLayerPropsA: CrossLayerProps,
-  crossLayerPropsB: CrossLayerProps
+export const createCrossLayerProps = (
+  logger: Logger,
+  crossLayerProps?: CrossLayerProps
 ) => {
+  const ids = logger.getIds()
+  return combineCrossLayerProps(crossLayerProps || {}, { logging: { ids } })
+}
+
+export const combineCrossLayerProps = <
+  TIn1 extends CrossLayerProps,
+  TIn2 extends CrossLayerProps = CrossLayerProps,
+>(
+  crossLayerPropsA: TIn1,
+  crossLayerPropsB: TIn2
+): TIn1 & TIn2 => {
   const loggingData = crossLayerPropsA.logging || {}
   const ids = loggingData.ids || []
   const currentIds = crossLayerPropsB.logging?.ids || []
@@ -412,14 +424,16 @@ export const combineCrossLayerProps = (
   )
 
   const finalIds = ids.concat(unique)
-  return {
+  const otherPropsA = omit(crossLayerPropsA, 'logging')
+  const otherPropsB = omit(crossLayerPropsB, 'logging')
+  return merge({}, otherPropsA, otherPropsB, {
     logging: merge(
       {
         ids: finalIds,
       },
-      omit(loggingData, 'ids')
+      loggingData
     ),
-  }
+  }) as TIn1 & TIn2
 }
 
 /**

@@ -110,6 +110,27 @@ describe('/src/libs.ts', () => {
     })
   })
   describe('#combineCrossLayerProps()', () => {
+    it('should be able to handle extended cross layer props types', () => {
+      const normal = {
+        logging: {
+          ids: [{ requestId: '123' }],
+        },
+      }
+      const extended = {
+        requestInfo: {
+          requestId: '123',
+        },
+      }
+      const actual = combineCrossLayerProps(normal, extended)
+      assert.deepEqual(actual, {
+        logging: {
+          ids: [{ requestId: '123' }],
+        },
+        requestInfo: {
+          requestId: '123',
+        },
+      })
+    })
     it('should combine when A has no logging, and B has logging', () => {
       const a = {}
       const b = {}
