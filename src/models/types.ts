@@ -53,13 +53,14 @@ type ModelCrudsFunctions<
 }>
 
 /**
- * Core Model Services
+ * Core model services providing CRUDS factory functionality.
+ * @interface
  */
 type ModelServices = Readonly<{
   /**
-   * Creates service level CRUDS functions for a model.
-   * @param model - The model.
-   * @param options
+   * Creates service-level {@link ModelCrudsFunctions} for an ORM model.
+   * @param model - The ORM model to build CRUDS functions for.
+   * @param options - Optional {@link CrudsOptions} to override individual functions.
    */
   createModelCruds: <TData extends DataDescription>(
     model: OrmModel<TData>,
@@ -68,7 +69,8 @@ type ModelServices = Readonly<{
 }>
 
 /**
- * A function that creates
+ * Creates a new model instance and persists it via the ORM.
+ * Accepts either partial data (with ignored properties) or a fully serialized object.
  */
 type CreateFunction<TData extends DataDescription> = <
   IgnoreProperties extends string = '',
@@ -77,14 +79,14 @@ type CreateFunction<TData extends DataDescription> = <
 ) => Promise<OrmModelInstance<TData>>
 
 /**
- * A function that retrieves
+ * Retrieves a model instance by its primary key. Returns `undefined` if not found.
  */
 type RetrieveFunction<TData extends DataDescription> = (
   primaryKey: PrimaryKeyType
 ) => Promise<OrmModelInstance<TData> | undefined>
 
 /**
- * A function that updates
+ * Updates an existing model instance identified by its primary key and persists the changes.
  */
 type UpdateFunction<TData extends DataDescription> = (
   primaryKey: PrimaryKeyType,
@@ -92,12 +94,12 @@ type UpdateFunction<TData extends DataDescription> = (
 ) => Promise<OrmModelInstance<TData>>
 
 /**
- * A function that deletes
+ * Deletes a model instance by its primary key.
  */
 type DeleteFunction = (primaryKey: PrimaryKeyType) => Promise<void>
 
 /**
- * A function that searches.
+ * Searches for model instances matching the given {@link OrmSearch} query.
  */
 type SearchFunction<TData extends DataDescription> = (
   ormSearch: OrmSearch

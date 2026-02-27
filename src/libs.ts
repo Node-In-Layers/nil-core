@@ -29,14 +29,26 @@ import {
   SyncNilFunction,
 } from './types.js'
 
+/**
+ * Wraps a function so it preserves its own properties while passing all arguments through.
+ * Used to wrap feature functions without losing metadata attached to the original function.
+ */
 export const featurePassThrough = wrap
 
+/**
+ * Returns a validator that throws if the given dot-path key is absent from the config.
+ * @param key - The dot-path key to check (e.g. `'@node-in-layers/core.apps'`).
+ */
 export const configHasKey = (key: string) => (config: Partial<Config>) => {
   if (get(config, key) === undefined) {
     throw new Error(`${key} was not found in config`)
   }
 }
 
+/**
+ * Returns a validator that throws if the value at the given dot-path key is not an array.
+ * @param key - The dot-path key to check.
+ */
 export const configItemIsArray = (key: string) => (config: Partial<Config>) => {
   if (Array.isArray(get(config, key)) === false) {
     throw new Error(`${key} must be an array`)
@@ -90,10 +102,19 @@ const _configItemsToCheck: readonly ((config: Partial<Config>) => void)[] = [
   _logFormatIsArrayOrString(),
 ]
 
+/**
+ * Validates a config object against all required structural checks.
+ * Throws a descriptive error if any required field is missing or has the wrong type.
+ * @param config - The config object to validate.
+ */
 export const validateConfig = (config: Partial<Config>) => {
   _configItemsToCheck.forEach(x => x(config))
 }
 
+/**
+ * Converts a numeric {@link LogLevel} enum value to its uppercase string name.
+ * @param logLevel - The numeric log level.
+ */
 export const getLogLevelName = (logLevel: LogLevel) => {
   switch (logLevel) {
     case LogLevel.TRACE:
@@ -113,6 +134,10 @@ export const getLogLevelName = (logLevel: LogLevel) => {
   }
 }
 
+/**
+ * Converts a {@link LogLevelNames} string to its corresponding numeric {@link LogLevel} value.
+ * @param logLevel - The log level name.
+ */
 export const getLogLevelNumber = (logLevel: LogLevelNames) => {
   switch (logLevel) {
     case LogLevelNames.trace:
@@ -141,6 +166,12 @@ const _getLayerKey = (layerDescription: LayerDescription): string => {
     : (layerDescription as string)
 }
 
+/**
+ * Given the complete ordered list of layers, returns a function that — for any given layer name —
+ * returns the layers that come after it (i.e. are unavailable to it at load time).
+ * Throws if the layer name is not recognized.
+ * @param allLayers - The full ordered list of {@link LayerDescription} entries from config.
+ */
 export const getLayersUnavailable = (
   allLayers: readonly LayerDescription[]
 ) => {
@@ -174,6 +205,10 @@ export const getLayersUnavailable = (
   }
 }
 
+/**
+ * Type guard that returns `true` if the given value looks like a valid {@link Config} object.
+ * @param obj - The value to test.
+ */
 export const isConfig = <TConfig extends Config>(obj: any): obj is TConfig => {
   if (typeof obj === 'string') {
     return false
@@ -196,6 +231,10 @@ export const getNamespace = (packageName: string, domain?: string) => {
   return packageName
 }
 
+/**
+ * A no-op {@link ModelInstanceFetcher} that resolves with the primary key as-is.
+ * Useful when no real data fetching is needed (e.g. in-memory or test scenarios).
+ */
 // @ts-ignore
 export const DoNothingFetcher: ModelInstanceFetcher = (
   model: any,
@@ -359,6 +398,10 @@ export const createErrorObject = (
   })
 }
 
+/**
+ * Type guard that returns `true` if the given value conforms to the {@link ErrorObject} shape.
+ * @param value - The value to test.
+ */
 export const isErrorObject = (value: unknown): value is ErrorObject => {
   if (!value) {
     return false
@@ -379,6 +422,12 @@ export const isErrorObject = (value: unknown): value is ErrorObject => {
   return true
 }
 
+/**
+ * Builds a {@link CrossLayerProps} object by merging the logger's current ids with any
+ * ids already present in the provided cross-layer props. Ensures ids are deduplicated.
+ * @param logger - The current logger (used to extract its id stack).
+ * @param crossLayerProps - Any existing cross-layer props to merge into.
+ */
 export const createCrossLayerProps = (
   logger: Logger,
   crossLayerProps?: CrossLayerProps
@@ -387,6 +436,12 @@ export const createCrossLayerProps = (
   return combineCrossLayerProps(crossLayerProps || {}, { logging: { ids } })
 }
 
+/**
+ * Merges two {@link CrossLayerProps} objects together. Deduplicates logging ids, preferring
+ * ids already present in `crossLayerPropsA`.
+ * @param crossLayerPropsA - The base cross-layer props (its ids take precedence).
+ * @param crossLayerPropsB - Additional cross-layer props to merge in.
+ */
 export const combineCrossLayerProps = <
   TIn1 extends CrossLayerProps,
   TIn2 extends CrossLayerProps = CrossLayerProps,
