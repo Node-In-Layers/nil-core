@@ -7,7 +7,6 @@ import {
   PrimaryKeyType,
   ToObjectResult,
 } from 'functional-models'
-import { Config, ServicesContext } from '../types.js'
 
 /**
  * The CRUDS functions for a model
@@ -138,22 +137,6 @@ type CrudsOptions<TData extends DataDescription> = Readonly<{
   overrides?: CrudsOverrides<TData>
 }>
 
-/**
- * A services context, that exposes CRUDS models services.
- */
-type ModelCrudsServicesContext<
-  TModels extends Record<string, ModelCrudsFunctions<any>>,
-  TConfig extends Config = Config,
-  TServices extends object = object,
-  TContext extends object = object,
-> = ServicesContext<
-  TConfig,
-  TServices & {
-    cruds: TModels
-  },
-  TContext
->
-
 export {
   UpdateFunction,
   DeleteFunction,
@@ -164,5 +147,4 @@ export {
   ModelCrudsFunctions,
   ModelServices,
   CrudsOverrides,
-  ModelCrudsServicesContext,
 }

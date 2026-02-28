@@ -257,15 +257,20 @@ const _layerLogger = <TConfig extends Config = Config>(
     TLogWrap extends LogWrapAsync<T, A> | LogWrapSync<T, A>,
   >(
     functionName: string,
-    func: TLogWrap
+    func: TLogWrap,
+    additionalData?: Record<string, any>
   ) => {
     // @ts-ignore
     const logLevel = logLevelGetter(layerName, functionName)
     return merge((...a: A) => {
       const [argsNoCrossLayer, crossLayer] = extractCrossLayerProps(a)
-      const funcLogger = getFunctionLogger(functionName, crossLayer)
+      const beforeFuncLogger = getFunctionLogger(functionName, crossLayer)
+      const funcLogger = additionalData
+        ? beforeFuncLogger.applyData(additionalData)
+        : beforeFuncLogger
       const doWork = () => {
         funcLogger[logLevel](`Executing ${layerName} function`, {
+          layer: layerName,
           args: argsNoCrossLayer,
         })
         // eslint-disable-next-line functional/no-try-statements
@@ -333,16 +338,26 @@ const _layerLogger = <TConfig extends Config = Config>(
     // eslint-disable-next-line functional/prefer-tacit
     _logWrapAsync: <T, A extends Array<any>>(
       functionName: string,
-      func: LogWrapAsync<T, A>
+      func: LogWrapAsync<T, A>,
+      additionalData?: Record<string, any>
     ) => {
-      return logWrap<T, A, LogWrapAsync<T, A>>(functionName, func)
+      return logWrap<T, A, LogWrapAsync<T, A>>(
+        functionName,
+        func,
+        additionalData
+      )
     },
     // eslint-disable-next-line functional/prefer-tacit
     _logWrapSync: <T, A extends Array<any>>(
       functionName: string,
-      func: LogWrapSync<T, A>
+      func: LogWrapSync<T, A>,
+      additionalData?: Record<string, any>
     ) => {
-      return logWrap<T, A, LogWrapSync<T, A>>(functionName, func)
+      return logWrap<T, A, LogWrapSync<T, A>>(
+        functionName,
+        func,
+        additionalData
+      )
     },
   })
 }

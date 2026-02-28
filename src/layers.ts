@@ -19,6 +19,7 @@ import {
   LayerServicesLayer,
   MaybePromise,
   ModelConstructor,
+  ModelCrudsFactory,
   ModelProps,
   PartialModelProps,
   ServicesContext,
@@ -233,6 +234,39 @@ const features = {
       return commonContext
     }
 
+    const _resolveCrudsFactory = (
+      layer: string,
+      domain: string,
+      model: string
+    ): ModelCrudsFactory => {
+      const defaultFactory: ModelCrudsFactory = (m, _ctx, opts) => {
+        return createModelCruds(m, opts)
+      }
+
+      const configFactory =
+        context.config['@node-in-layers/core'].modelCrudsFactory
+      if (!configFactory) {
+        return defaultFactory
+      }
+      if (typeof configFactory === 'function') {
+        return configFactory
+      }
+
+      const override = configFactory.find(o => {
+        if (o.layer && o.layer !== layer) {
+          return false
+        }
+        if (o.domain && o.domain !== domain) {
+          return false
+        }
+        if (o.model && o.model !== model) {
+          return false
+        }
+        return true
+      })
+      return override ? override.factory : defaultFactory
+    }
+
     const _getModelLoadedContext = (
       app: App,
       currentLayer: string,
@@ -331,8 +365,16 @@ const features = {
 
           const serviceCruds = context.config['@node-in-layers/core'].modelCruds
             ? Object.keys(models).reduce((acc, name) => {
+                const factory = _resolveCrudsFactory(
+                  currentLayer,
+                  app.name,
+                  name
+                )
                 return merge(acc, {
-                  [name]: createModelCruds(() => getModels()[name]),
+                  [name]: factory(
+                    () => getModels()[name],
+                    layerContextWithGetters
+                  ),
                 })
               }, {})
             : undefined
@@ -370,10 +412,15 @@ const features = {
           // @ts-ignore
           const featureWrappers = serviceWrappers.reduce(
             (acc, [name, cruds]) => {
+              const factory = _resolveCrudsFactory(currentLayer, app.name, name)
               return merge(acc, {
-                [name]: createModelCruds<any>(() => cruds.getModel(), {
-                  overrides: cruds,
-                }),
+                [name]: factory<any>(
+                  () => cruds.getModel(),
+                  layerContextWithGetters,
+                  {
+                    overrides: cruds,
+                  }
+                ),
               })
             },
             {}
@@ -412,6 +459,7 @@ const features = {
           log: layerLogger,
         })
       )
+
       const ignoreLayerFunctions = merge(
         commonContext.config[CoreNamespace.root].logging
           ?.ignoreLayerFunctions || {},
@@ -420,6 +468,56 @@ const features = {
           [`${CoreNamespace.otel}.services`]: true,
         }
       )
+
+      if (
+        !commonContext.config[CoreNamespace.root].noModelLogWrap &&
+        layerContext[currentLayer]?.[app.name]?.cruds
+      ) {
+        const domainLevelKey = app.name
+        const layerLevelKey = `${app.name}.${currentLayer}`
+        if (
+          !get(ignoreLayerFunctions, layerLevelKey) &&
+          !get(ignoreLayerFunctions, domainLevelKey)
+        ) {
+          const crudsContainer = layerContext[currentLayer][app.name].cruds
+          Object.entries(crudsContainer).forEach(([modelName, crudsObj]) => {
+            const modelLevelKey = `${app.name}.${currentLayer}.${modelName}`
+            const globalModelLevelKey = `${app.name}.*.${modelName}`
+            if (
+              !get(ignoreLayerFunctions, modelLevelKey) &&
+              !get(ignoreLayerFunctions, globalModelLevelKey)
+            ) {
+              Object.entries(crudsObj as object).forEach(([funcName, func]) => {
+                const functionLevelKey = `${app.name}.${currentLayer}.${modelName}.${funcName}`
+                if (
+                  !get(ignoreLayerFunctions, functionLevelKey) &&
+                  typeof func === 'function' &&
+                  funcName !== 'getModel'
+                ) {
+                  const newFunc = merge(
+                    layerLogger._logWrap(
+                      `cruds:${modelName}:${funcName}`,
+                      merge((log, ...args2) => {
+                        const [argsNoCrossLayer, crossLayer] =
+                          extractCrossLayerProps(args2)
+                        // @ts-ignore
+                        return func(
+                          ...argsNoCrossLayer,
+                          createCrossLayerProps(log, crossLayer)
+                        )
+                      }, func),
+                      { model: modelName }
+                    ),
+                    func
+                  )
+                  // eslint-disable-next-line functional/immutable-data
+                  crudsContainer[modelName][funcName] = newFunc
+                }
+              })
+            }
+          })
+        }
+      }
 
       const wrappedContext = Object.entries(layerContext).reduce(
         (acc, [layerKey, layerData]) => {

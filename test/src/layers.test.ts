@@ -277,6 +277,82 @@ const modelsConfig3 = () => {
   }
 }
 
+const customFactoryConfig = (
+  crudsFactory?: any,
+  ignoreFunctions?: any,
+  noModelLogWrap?: boolean
+) => {
+  const app1Models = {
+    Model1: {
+      create: sinon.stub().callsFake(props => {
+        const m = props.Model({
+          pluralName: 'Model1',
+          namespace: 'app1',
+          properties: { id: PrimaryKeyUuidProperty() },
+        })
+        const prototypeObj = {
+          save: sinon.stub().resolves({}),
+        }
+        m.save = sinon.stub().resolves(prototypeObj)
+        m.delete = sinon.stub().resolves(true)
+        m.retrieve = sinon.stub().resolves(prototypeObj)
+        m.search = sinon.stub().resolves({ results: [], total: 0 })
+        m.bulkInsert = sinon.stub().resolves(true)
+        m.bulkDelete = sinon.stub().resolves(true)
+        return m
+      }),
+    },
+    Model2: {
+      create: sinon.stub().callsFake(props => {
+        const m = props.Model({
+          pluralName: 'Model2',
+          namespace: 'app1',
+          properties: { id: PrimaryKeyUuidProperty() },
+        })
+        const prototypeObj = {
+          save: sinon.stub().resolves({}),
+        }
+        m.save = sinon.stub().resolves(prototypeObj)
+        m.delete = sinon.stub().resolves(true)
+        m.retrieve = sinon.stub().resolves(prototypeObj)
+        m.search = sinon.stub().resolves({ results: [], total: 0 })
+        m.bulkInsert = sinon.stub().resolves(true)
+        m.bulkDelete = sinon.stub().resolves(true)
+        return m
+      }),
+    },
+  }
+
+  const app1 = {
+    name: 'app1',
+    models: app1Models,
+    create: {
+      models: app1Models,
+      services: sinon.stub().returns({}),
+      features: sinon.stub().returns({}),
+    },
+    services: { create: sinon.stub().returns({}) },
+    features: { create: sinon.stub().returns({}) },
+  }
+
+  return {
+    environment: 'unit-test',
+    systemName: 'nil-core',
+    ['@node-in-layers/core']: {
+      apps: [app1],
+      layerOrder: ['services', 'features'],
+      modelCruds: true,
+      modelCrudsFactory: crudsFactory,
+      noModelLogWrap: noModelLogWrap,
+      logging: {
+        logFormat: LogFormat.full,
+        logLevel: LogLevelNames.trace,
+        ignoreLayerFunctions: ignoreFunctions,
+      },
+    },
+  }
+}
+
 const customLayer1 = () => {
   const app1 = {
     name: 'app1',
@@ -814,6 +890,188 @@ describe('/src/layers.ts', () => {
         const actual = get(layers, 'features.app1.cruds')
         assert.isUndefined(actual)
       })
+      describe('Model Cruds Logging and Factories', () => {
+        it('should use the custom model cruds factory.', async () => {
+          const customFactory = sinon.stub().returns({ create: () => 'custom' })
+          const config = customFactoryConfig(customFactory)
+          const inputs = _setup(config)
+          const instance = features.create(inputs)
+          const layers = await instance.loadLayers()
+
+          assert.isTrue(customFactory.called)
+          assert.equal(layers.services.app1.cruds.Model1.create(), 'custom')
+        })
+
+        it('should use a specific custom model factory for a specific model.', async () => {
+          const customFactory = sinon
+            .stub()
+            .returns({ create: () => 'custom-specific' })
+          const factoryOverride = [
+            {
+              domain: 'app1',
+              model: 'Model1',
+              factory: customFactory,
+            },
+          ]
+          const config = customFactoryConfig(factoryOverride)
+          const inputs = _setup(config)
+          const instance = features.create(inputs)
+          const layers = await instance.loadLayers()
+
+          assert.isTrue(customFactory.called)
+          assert.equal(
+            layers.services.app1.cruds.Model1.create(),
+            'custom-specific'
+          )
+        })
+
+        it('should NOT use a custom model factory when it isnt that specific model.', async () => {
+          const customFactory = sinon
+            .stub()
+            .returns({ create: () => 'custom-specific' })
+          const factoryOverride = [
+            {
+              domain: 'app1',
+              model: 'Model1',
+              factory: customFactory,
+            },
+          ]
+          const config = customFactoryConfig(factoryOverride)
+          const inputs = _setup(config)
+          const instance = features.create(inputs)
+          const layers = await instance.loadLayers()
+
+          // Model2 should not use the custom factory
+          assert.isFunction(layers.services.app1.cruds.Model2.create)
+          assert.notEqual(
+            layers.services.app1.cruds.Model2.create,
+            'custom-specific'
+          )
+        })
+
+        it('should NOT log wrap if noModelLogWrap is true', async () => {
+          // noModelLogWrap = true
+          const config = customFactoryConfig(undefined, undefined, true)
+          const inputs = _setup(config)
+          const instance = features.create(inputs)
+          const layers = await instance.loadLayers()
+
+          await layers.services.app1.cruds.Model1.retrieve('123')
+
+          // The logger should not have been called with cruds:Model1:retrieve
+          const logCalls = inputs._logging?.mockLogMethod?.getCalls() || []
+          const crudsLogs = logCalls.filter(
+            call => call.args[0].function === 'cruds:Model1:retrieve'
+          )
+          assert.equal(crudsLogs.length, 0)
+        })
+
+        it('should NOT log wrap if the domain is ignored', async () => {
+          const config = customFactoryConfig(undefined, { app1: true })
+          const inputs = _setup(config)
+          const instance = features.create(inputs)
+          const layers = await instance.loadLayers()
+
+          await layers.services.app1.cruds.Model1.retrieve('123')
+
+          const logCalls = inputs._logging?.mockLogMethod?.getCalls() || []
+          const crudsLogs = logCalls.filter(
+            call => call.args[0].function === 'cruds:Model1:retrieve'
+          )
+          assert.equal(crudsLogs.length, 0)
+        })
+
+        it('should NOT log wrap if the domain.layer is ignored', async () => {
+          const config = customFactoryConfig(undefined, {
+            'app1.services': true,
+          })
+          const inputs = _setup(config)
+          const instance = features.create(inputs)
+          const layers = await instance.loadLayers()
+
+          await layers.services.app1.cruds.Model1.retrieve('123')
+
+          const logCalls = inputs._logging?.mockLogMethod?.getCalls() || []
+          // Services shouldn't be logged because it's ignored
+          const crudsLogs = logCalls.filter(
+            call => call.args[0].function === 'cruds:Model1:retrieve'
+          )
+          assert.equal(crudsLogs.length, 0)
+        })
+
+        it('should log wrap other domain layers if the domain.layer is not ignored', async () => {
+          const config = customFactoryConfig(undefined, {
+            'app1.services': true,
+          })
+          const inputs = _setup(config)
+          const instance = features.create(inputs)
+          const layers = await instance.loadLayers()
+
+          // Features are NOT ignored! Let's call a feature CRUDS function.
+          await layers.features.app1.cruds.Model1.retrieve('123')
+
+          const logCalls = inputs._logging?.mockLogMethod?.getCalls() || []
+          const crudsLogs = logCalls.filter(
+            call => call.args[0].function === 'cruds:Model1:retrieve'
+          )
+          // It wrapped the features layer! Should have "running" and "completed" (2 logs)
+          assert.equal(crudsLogs.length, 2)
+        })
+
+        it('should NOT log wrap if the domain.*.PluralName is ignored', async () => {
+          const config = customFactoryConfig(undefined, {
+            'app1.*.Model1': true,
+          })
+          const inputs = _setup(config)
+          const instance = features.create(inputs)
+          const layers = await instance.loadLayers()
+
+          await layers.services.app1.cruds.Model1.retrieve('123')
+          await layers.services.app1.cruds.Model2.retrieve('123')
+
+          const logCalls = inputs._logging?.mockLogMethod?.getCalls() || []
+
+          // Verify no Model1 logs
+          const model1Logs = logCalls.filter(
+            call => call.args[0].function === 'cruds:Model1:retrieve'
+          )
+          assert.equal(model1Logs.length, 0)
+
+          // Model2 is NOT ignored, it should log 2 messages.
+          const model2Logs = logCalls.filter(
+            call => call.args[0].function === 'cruds:Model2:retrieve'
+          )
+          assert.equal(model2Logs.length, 2)
+        })
+
+        it('should include the model property in the log output when executing cruds', async () => {
+          const config = customFactoryConfig()
+          const inputs = _setup(config)
+          const instance = features.create(inputs)
+          const layers = await instance.loadLayers()
+
+          await layers.features.app1.cruds.Model1.retrieve('123')
+
+          const logCalls = inputs._logging?.mockLogMethod?.getCalls() || []
+
+          // Find the logs for the retrieve function we just called
+          const retrieveLogs = logCalls.filter(
+            call =>
+              call.args[0]?.function === 'cruds:Model1:retrieve' &&
+              call.args[0]?.layer === 'features'
+          )
+
+          // Ensure we found some logs
+          assert.isAbove(retrieveLogs.length, 0)
+
+          // Assert that the 'model' property is present and matches the model name
+          retrieveLogs.forEach(log => {
+            assert.equal(log.args[0].model, 'Model1')
+            assert.equal(log.args[0].layer, 'features')
+          })
+        })
+      })
+
       describe('#getModels()', () => {
         it('should have Model1 in output', async () => {
           const config = modelsConfig1()

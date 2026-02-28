@@ -13,7 +13,9 @@ import {
   DatabaseKeyPropertyConfig,
   PrimaryKeyProperty,
   ForeignKeyProperty,
+  OrmModel,
 } from 'functional-models'
+import { CrudsOptions, ModelCrudsFunctions } from './models/types.js'
 
 /**
  * A constructor provided by a domain's model module for creating {@link ModelType} instances.
@@ -28,6 +30,33 @@ export type ModelConstructor = Readonly<{
   >(
     modelProps: ModelProps
   ) => ModelType<T, TModelExtensions, TModelInstanceExtensions>
+}>
+
+/**
+ * A custom factory function to create model CRUDS wrappers.
+ * Takes the model getter, the layer context, and optional cruds options.
+ * The layer context provides `getFeatures` and `getServices` for late-binding dependencies.
+ * @interface
+ */
+export type ModelCrudsFactory = <TData extends DataDescription>(
+  model: OrmModel<TData> | (() => OrmModel<TData>),
+  context: LayerContext,
+  options?: CrudsOptions<TData>
+) => ModelCrudsFunctions<TData>
+
+/**
+ * Specific override for a model CRUDS factory.
+ * @interface
+ */
+export type ModelCrudsFactoryOverride = Readonly<{
+  /** Which layer this applies to (e.g., 'features', 'services') */
+  layer?: string
+  /** Which domain namespace this applies to (e.g., '@node-in-layers/auth') */
+  domain?: string
+  /** Which model plural name this applies to (e.g., 'Users') */
+  model?: string
+  /** The factory function to use */
+  factory: ModelCrudsFactory
 }>
 
 /**
@@ -247,7 +276,8 @@ export type LayerLogger = Logger &
      */
     _logWrap: <T, A extends Array<any>>(
       functionName: string,
-      func: LogWrapAsync<T, A> | LogWrapSync<T, A>
+      func: LogWrapAsync<T, A> | LogWrapSync<T, A>,
+      additionalData?: Record<string, any>
     ) => (...a: A) => Promise<T> | T
     /**
      * Creates a logging wrap around a function. This should be used on asynchronous functions.
@@ -260,7 +290,8 @@ export type LayerLogger = Logger &
      */
     _logWrapAsync: <T, A extends Array<any>>(
       functionName: string,
-      func: LogWrapAsync<T, A>
+      func: LogWrapAsync<T, A>,
+      additionalData?: Record<string, any>
     ) => (...a: A) => Promise<T>
     /**
      * Creates a logging wrap around a synchronous function. This should be used on synchronous functions.
@@ -273,7 +304,8 @@ export type LayerLogger = Logger &
      */
     _logWrapSync: <T, A extends Array<any>>(
       functionName: string,
-      func: LogWrapSync<T, A>
+      func: LogWrapSync<T, A>,
+      additionalData?: Record<string, any>
     ) => (...a: A) => T
     /**
      * Gets a function level logger. This is not the recommended logger for most uses especially within layers.
@@ -796,6 +828,16 @@ export type CoreConfig = Readonly<{
    */
   modelCruds?: boolean
   /**
+   * Optional: A custom factory function (or array of specific overrides) to create model CRUDS wrappers.
+   * Allows injecting policy engines or other logic into the CRUDS layer.
+   */
+  modelCrudsFactory?: ModelCrudsFactory | readonly ModelCrudsFactoryOverride[]
+  /**
+   * Optional: When true, model CRUDS functions will not be automatically wrapped with logging.
+   * However, if false, the normal ignoreLayerFunctions approaches still apply.
+   */
+  noModelLogWrap?: boolean
+  /**
    * Optional: Provides granular getModelProps() for specific models.
    */
   customModelFactory?: NamespaceToFactory
@@ -1154,3 +1196,19 @@ export type AnnotatedFunctionProps<
    */
   returns?: ZodType<TOutput extends void ? never : TOutput>
 }
+
+/**
+ * A services context, that exposes CRUDS models services.
+ */
+export type ModelCrudsServicesContext<
+  TModels extends Record<string, ModelCrudsFunctions<any>>,
+  TConfig extends Config = Config,
+  TServices extends object = object,
+  TContext extends object = object,
+> = ServicesContext<
+  TConfig,
+  TServices & {
+    cruds: TModels
+  },
+  TContext
+>
