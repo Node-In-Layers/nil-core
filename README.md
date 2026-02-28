@@ -1,7 +1,7 @@
 # Node In Layers
 
 ![Unit Tests](https://github.com/node-in-layers/nil-core/actions/workflows/ut.yml/badge.svg?branch=main)
-[![Coverage Status](https://coveralls.io/repos/github/Node-In-Layers/nil-core/badge.svg?branch=try-again)](https://coveralls.io/github/Node-In-Layers/nil-core?branch=try-again)
+[![Coverage Status](https://coveralls.io/repos/github/Node-In-Layers/nil-core/badge.svg?branch=try-again)](https://coveralls.io/github/Node-In-Layers/nil-core?branch=main)
 
 <img src="./public/nil.png" width="160" height="150" />
 
