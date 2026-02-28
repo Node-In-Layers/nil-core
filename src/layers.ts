@@ -23,6 +23,7 @@ import {
   ModelProps,
   PartialModelProps,
   ServicesContext,
+  ModelCrudsFunctions,
 } from './types.js'
 import {
   createCrossLayerProps,
@@ -30,7 +31,6 @@ import {
   getLayersUnavailable,
 } from './libs.js'
 import { memoizeValueSync } from './utils.js'
-import { ModelCrudsFunctions } from './models/types.js'
 import { OtelServicesLayer } from './otel/types.js'
 import {
   getForeignKeyProperty,

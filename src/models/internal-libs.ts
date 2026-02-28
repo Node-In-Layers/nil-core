@@ -13,10 +13,17 @@ import {
   DatabaseKeyPropertyConfig,
 } from 'functional-models'
 import merge from 'lodash/merge.js'
-import { CommonContext, Config, ForeignKeyPropertyGetter } from '../types.js'
+import get from 'lodash/get.js'
+import {
+  CommonContext,
+  Config,
+  CrossLayerProps,
+  ForeignKeyPropertyGetter,
+  CrudsOptions,
+  ModelCrudsFunctions,
+} from '../types.js'
 import { memoizeValueSync } from '../utils.js'
 import { getPrimaryKeyDataType, getPrimaryKeyGenerator } from './libs.js'
-import { CrudsOptions, ModelCrudsFunctions } from './types.js'
 
 export const getPrimaryKeyProperty =
   <TConfig extends Config = Config>(context: CommonContext<TConfig>) =>
@@ -75,48 +82,94 @@ const createModelCruds = <TData extends DataDescription>(
   })
 
   const createFunction = <IgnoreProperties extends string = ''>(
-    data: Omit<TData, IgnoreProperties> | ToObjectResult<TData>
+    data: Omit<TData, IgnoreProperties> | ToObjectResult<TData>,
+    crossLayerProps?: CrossLayerProps
   ): Promise<OrmModelInstance<TData>> => {
+    const subCreate = get(options, 'overrides.create')
+    if (subCreate) {
+      return subCreate(data, crossLayerProps)
+    }
     // @ts-ignore
     const instance = _getModel().create(data)
     return instance.save()
   }
 
   const retrieveFunction = (
-    primaryKey: PrimaryKeyType
+    primaryKey: PrimaryKeyType,
+    crossLayerProps?: CrossLayerProps
   ): Promise<OrmModelInstance<TData> | undefined> => {
+    const subRetrieve = get(options, 'overrides.retrieve')
+    if (subRetrieve) {
+      return subRetrieve(primaryKey, crossLayerProps)
+    }
     return _getModel().retrieve(primaryKey)
+  }
+
+  const searchFunction = (
+    ormSearch: OrmSearch,
+    crossLayerProps?: CrossLayerProps
+  ): Promise<OrmSearchResult<TData>> => {
+    const subSearch = get(options, 'overrides.search')
+    if (subSearch) {
+      return subSearch(ormSearch, crossLayerProps)
+    }
+    return _getModel().search(ormSearch)
+  }
+
+  const bulkInsertFunction = async (
+    data: readonly TData[],
+    crossLayerProps?: CrossLayerProps
+  ): Promise<void> => {
+    const subBulkInsert = get(options, 'overrides.bulkInsert')
+    if (subBulkInsert) {
+      await subBulkInsert(data, crossLayerProps)
+      return undefined
+    }
+    const model = _getModel()
+    await model.bulkInsert(data.map(x => model.create(x)))
+    return undefined
+  }
+
+  const bulkDeleteFunction = async (
+    primaryKeys: readonly PrimaryKeyType[],
+    crossLayerProps?: CrossLayerProps
+  ): Promise<void> => {
+    const subBulkDelete = get(options, 'overrides.bulkDelete')
+    if (subBulkDelete) {
+      await subBulkDelete(primaryKeys, crossLayerProps)
+      return undefined
+    }
+    await _getModel().bulkDelete(primaryKeys)
+    return undefined
   }
 
   const updateFunction = (
     primaryKey: PrimaryKeyType,
-    data: TData | ToObjectResult<TData>
+    data: TData | ToObjectResult<TData>,
+    crossLayerProps?: CrossLayerProps
   ): Promise<OrmModelInstance<TData>> => {
-    const pkName = _getModel().getModelDefinition().primaryKeyName
-    // @ts-ignore
-    const instance = _getModel().create(merge({ [pkName]: primaryKey }, data))
+    const subUpdate = get(options, 'overrides.update')
+    if (subUpdate) {
+      return subUpdate(primaryKey, data, crossLayerProps)
+    }
+    const model = _getModel()
+    const instance = model.create(
+      merge({ [model.getModelDefinition().primaryKeyName]: primaryKey }, data)
+    )
     return instance.save()
   }
 
-  const deleteFunction = (primaryKey: PrimaryKeyType): Promise<void> => {
-    return _getModel().delete(primaryKey)
-  }
-
-  const searchFunction = (
-    ormSearch: OrmSearch
-  ): Promise<OrmSearchResult<TData>> => {
-    return _getModel().search(ormSearch)
-  }
-
-  const bulkInsertFunction = async (data: readonly TData[]): Promise<void> => {
-    const model = _getModel()
-    await model.bulkInsert(data.map(x => model.create(x)))
-  }
-
-  const bulkDeleteFunction = async (
-    primaryKeys: readonly PrimaryKeyType[]
+  const deleteFunction = async (
+    primaryKey: PrimaryKeyType,
+    crossLayerProps?: CrossLayerProps
   ): Promise<void> => {
-    await _getModel().bulkDelete(primaryKeys)
+    const subDelete = get(options, 'overrides.delete')
+    if (subDelete) {
+      await subDelete(primaryKey, crossLayerProps)
+      return undefined
+    }
+    await _getModel().delete(primaryKey)
+    return undefined
   }
 
   return {
@@ -128,8 +181,6 @@ const createModelCruds = <TData extends DataDescription>(
     search: searchFunction,
     bulkInsert: bulkInsertFunction,
     bulkDelete: bulkDeleteFunction,
-    // If we have overrides this will overwrite our function
-    ...(options && options.overrides ? options.overrides : {}),
   }
 }
 
